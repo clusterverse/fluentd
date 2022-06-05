@@ -1,0 +1,94 @@
+---
+
+- name: fluentd-load-balancer-awsnlb | ec2_instance_info
+  ec2_instance_info:
+    filters:
+      "tag:hosttype": "fluentd"
+      "instance-state-name": ["running"]
+    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    region: "{{cluster_vars.region}}"
+  delegate_to: localhost
+  run_once: true
+  register: r__ec2_instance_info
+
+- name: fluentd-load-balancer-awsnlb | r__ec2_instance_info
+  debug: msg="{{r__ec2_instance_info}}"
+  run_once: true
+
+- name: fluentd-load-balancer-awsnlb | create elb_target_group
+  elb_target_group:
+    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    name: "{{cluster_name}}-{{item.port}}"
+    protocol: "{% if 'config' in item and 'transport udp' in item.config %}UDP{% else %}TCP{% endif %}"
+    port: "{{ item.port }}"
+    vpc_id: "{{ r__ec2_instance_info.instances | json_query(\"[].vpc_id | [0]\") }}"
+    health_check_port: "{{ item.port if 'config' not in item or 'transport udp' not in item.config else omit }}"
+    health_check_protocol: "{{ 'TCP' if 'config' not in item or 'transport udp' not in item.config else omit }}"
+    health_check_interval: "{{ 10 if 'config' not in item or 'transport udp' not in item.config else omit }}"
+    stickiness_enabled: no
+    successful_response_codes: "200,250-260"
+    targets: "{{ r__ec2_instance_info.instances | json_query(\"[].{Id: instance_id, Port: `\" + item.port|string + \"`}\") }}"
+    state: present
+  delegate_to: localhost
+  run_once: true
+  register: r__elb_target_group
+  with_items: "{{ fluentd.conffile.sources_listeners | json_query(\"[?contains(keys(@), `port`)]\") }}"
+
+- debug: msg={{r__elb_target_group}}
+
+- name: fluentd-load-balancer-awsnlb | Create an N/ELB and attach listeners
+  elb_network_lb:
+    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    name: "{{cluster_name}}"
+    subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
+    cross_zone_load_balancing: yes
+    scheme: internal
+    listeners: "{{ r__elb_target_group.results | json_query(\"[].{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
+    state: present
+    wait: yes
+  delegate_to: localhost
+  run_once: true
+  register: r__elb_network_lb
+
+- name: fluentd-load-balancer-awsnlb | r__elb_network_lb
+  debug: msg="{{r__elb_network_lb}}"
+  run_once: true
+
+
+- name: fluentd-load-balancer-awsnlb | Gather info for pre-existing Hosted Zones (public and/or private)
+  route53_info:
+    aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    query: hosted_zone
+  delegate_to: localhost
+  register: r__route53_info__zones
+
+- name: fluentd-load-balancer-awsnlb | r__route53_info__zones
+  debug: msg="{{r__route53_info__zones}}"
+  run_once: true
+
+- name: fluentd-load-balancer-awsnlb | create CNAME(s)
+  route53:
+    aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    state: present
+    zone: "{{cluster_vars.dns_nameserver_zone}}"
+    record: "{{loadbalancer.url}}"
+    type: CNAME
+    ttl: 30
+    value: "{{ r__elb_network_lb.dns_name }}"
+    private_zone: "{{ item.Config.PrivateZone }}"
+    overwrite: true
+  with_items: "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
+  delegate_to: localhost
+  run_once: true
+  when: cluster_vars.dns_server == "route53"  and  loadbalancer.url is defined and loadbalancer.url != ''
+
+#- name: fluentd-load-balancer-awsnlb | Wait for the NLB to be fully UP   (NOTE - only works if target is valid)
+#  wait_for:
+#    port: "{{ target_ports | first }}"
+#    host: '{{ r__elb_network_lb.dns_name }}'
+#  run_once: true

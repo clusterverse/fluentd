@@ -1,0 +1,4 @@
+---
+
+loadbalancer:
+  lb_ha_mgr: "awsnlb"

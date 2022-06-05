@@ -1,0 +1,65 @@
+---
+
+- block:
+    - name: clean_aws | Get the ELB info
+      community.aws.elb_application_lb_info:
+        aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+        aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        names: "{{cluster_name}}"
+      register: r__elb_application_lb_info
+
+    - debug: msg={{r__elb_application_lb_info}}
+
+    - name: clean_aws | Delete the N/ELB
+      elb_network_lb:
+        aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+        aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        name: "{{cluster_name}}"
+        state: absent
+
+    - name: clean_aws | Delete the elb_target_groups
+      elb_target_group:
+        aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
+        aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        name: "{{item}}"
+        state: absent
+      with_items: "{{r__elb_application_lb_info | json_query('load_balancers[].listeners[].default_actions[].target_group_arn') | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"
+
+    - block:
+        - name: clean_aws | Gather info for pre-existing Hosted Zones (public and/or private)
+          route53_info:
+            aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+            aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            query: hosted_zone
+          register: r__route53_info__zones
+
+        - name: clean_aws | Get CNAME records
+          route53:
+            aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+            aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            state: "get"
+            zone: "{{cluster_vars.dns_nameserver_zone}}"
+            record: "{{loadbalancer.url}}"
+            type: "CNAME"
+            private_zone: "{{ item.Config.PrivateZone }}"
+          register: r__route53_cname
+          ignore_errors: yes
+          with_items: "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
+
+        - name: clean_aws | debug r__route53_cname
+          debug: msg={{r__route53_cname}}
+
+        - name: clean_aws | Delete CNAME records
+          route53:
+            aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+            aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            state: "absent"
+            zone: "{{ item.set.zone }}"
+            record: "{{ item.set.record }}"
+            type: "{{ item.set.type }}"
+            ttl: "{{ item.set.ttl }}"
+            value: ["{{ item.set.value }}"]
+            private_zone: "{{ item.item.Config.PrivateZone }}"
+          with_items: "{{ r__route53_cname.results }}"
+          when: item.failed == false and item.set.keys()|length
+      when: cluster_vars.dns_server == "route53"

@@ -1,0 +1,26 @@
+---
+
+- name: fluentd-binary | Install required packages and libraries
+  become: yes
+  apt:
+    name: ['cmake', 'libcap-ng-dev', '{{ruby_version}}', '{{rubydev_version}}', 'build-essential', '{{ libjemalloc_version }}']
+    update_cache: yes
+
+- name: fluentd-binary | Install fluentd gem
+  become: yes
+  gem:
+    name: fluentd
+    state: present
+    version: "{{ fluentd.version }}"
+    user_install: no
+  notify: restart fluentd
+
+- name: fluentd-binary | Install fluentd plugin gems
+  become: yes
+  gem:
+    name: "{{ item }}"
+    state: present
+    version: "{{ fluentd.plugins[item].version }}"
+    user_install: no
+  with_items: "{{ fluentd.plugins.keys() | list }}"
+  notify: restart fluentd

@@ -1,0 +1,56 @@
+---
+
+- name: fluentd-static-config | Create pid, log and conf directories
+  become: yes
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{fluentd.user}}"
+    group: "{{fluentd.group}}"
+    mode: "2755"
+  with_items:
+    - "{{ fluentd.pid_dir }}"
+    - "{{ fluentd.conf_dir }}"
+    - "{{ fluentd.log_file | dirname }}"
+
+- name: fluentd-static-config | Copy SSL CA to remote
+  become: yes
+  copy:
+    content: "{{ item.val }}"
+    dest: "{{ item.path }}"
+    mode: "{{ item.mode }}"
+    owner: "{{ fluentd.user }}"
+    group: "{{ fluentd.group }}"
+    force: "{{ 'yes' if recreate_certs is defined and recreate_certs|bool else 'no' }}"
+  no_log: true
+  with_items:
+    - { path: "{{ fluentd.conf_dir }}/ca.crt", val: "{{ssl_ca['ca-crt.pem']}}", mode: '0600' }
+  notify: restart fluentd
+
+- name: fluentd-static-config | Copy fluentd daemon config
+  become: yes
+  template:
+    src: "fluentd.conf.j2"
+    dest: "{{ fluentd.conf_dir }}/fluentd.conf"
+    owner: "{{ fluentd.user }}"
+    group: "{{ fluentd.group }}"
+    mode: 0644
+  notify: restart fluentd
+
+- name: fluentd-static-config | Copy fluentd service config
+  become: yes
+  template:
+    src: "fluentd.service.j2"
+    dest: /lib/systemd/system/fluentd.service
+    owner: "{{ fluentd.user }}"
+    group: "{{ fluentd.group }}"
+    mode: 0755
+  notify: restart fluentd
+
+- name: fluentd-static-config | Configure daemon service
+  become: yes
+  systemd:
+    name: fluentd
+    state: started
+    enabled: yes
+    daemon_reload: yes

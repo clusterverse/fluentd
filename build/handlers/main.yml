@@ -1,0 +1,34 @@
+---
+
+## Restart fluentd nodes in-turn, ensuring each node is *really* back up (i.e. a port is open) before restarting the next.
+## This is an ugly way to do it, but it seems there is no alternative: 'throttle' applied to a block will apply throttle to each element of the block, so it will restart the service one-by-one, then wait for port 9200 one-by-one, which means the entire cluster will be down.  Also, 'throttle' cannot be applied to include/import_tasks.
+- name: restart fluentd
+  become: yes
+  action:
+    module: "{{ item.module }}"
+  args: "{{ item.args }}"
+  loop: "{{loop_vars | from_yaml }}"
+  vars:
+    loop_vars: |
+      - module: service
+        args:
+          name: fluentd
+          state: restarted
+          enabled: yes
+      {% for source in fluentd.conffile.sources_listeners %}
+      {% if 'port' in source and ('config' not in source or 'config' in source and 'transport udp' not in source.config) %}
+      - module: wait_for
+        args:
+          host: localhost
+          port: {{ source.port }}
+          timeout: 60
+      {% endif %}
+      {% endfor %}
+
+
+- name: restart keepalived
+  become: yes
+  service:
+    name: keepalived
+    enabled: yes
+    state: restarted

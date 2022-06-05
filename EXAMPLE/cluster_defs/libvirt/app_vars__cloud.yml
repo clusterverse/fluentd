@@ -1,0 +1,6 @@
+---
+
+loadbalancer:
+  lb_ha_mgr: "keepalived_ipvs"
+  keepalived:
+    vip_cidr: 192.168.1.48/25

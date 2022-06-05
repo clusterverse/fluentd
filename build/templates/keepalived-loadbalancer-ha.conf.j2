@@ -1,0 +1,52 @@
+
+global_defs {
+  script_user root
+  enable_script_security
+  vrrp_version 3
+  lvs_flush
+}
+
+vrrp_instance VI_1 {
+  state BACKUP
+  interface {{ ansible_default_ipv4.interface }}
+  virtual_router_id 55
+  priority 100
+  advert_int 1
+
+  track_interface {
+    {{ ansible_default_ipv4.interface }}
+  }
+
+  unicast_src_ip {{ ansible_default_ipv4.address }}
+  unicast_peer {
+    {% for peer in keepalived_peers | sort() -%}
+    {{ peer }}
+    {% endfor -%}
+  }
+
+  virtual_ipaddress {
+    {{ loadbalancer.keepalived.vip_cidr }}
+  }
+
+  notify_master "/etc/keepalived/bypass_ipvs.sh del {{loadbalancer.keepalived.vip_cidr | ipaddr('address')}}"
+  notify_backup "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ipaddr('address')}}"
+  notify_fault "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ipaddr('address')}}"
+}
+
+{% for source in fluentd.conffile.sources_listeners | json_query('[?contains(keys(@), `port`)] | sort_by(@, &port)') -%}
+virtual_server {{ loadbalancer.keepalived.vip_cidr | ipaddr('address') }} {{ source.port }} {
+  delay_loop 5
+  lvs_sched rr
+  lvs_method DR
+  protocol {% if 'config' in source and 'transport udp' in source.config %}UDP{% else %}TCP{% endif %}
+
+  {% for real_server in keepalived_real_servers -%}
+  real_server {{ real_server }} {{ source.port }} {
+    weight 1
+    {% if 'config' in source and 'transport udp' in source.config %}UDP{% else %}TCP{% endif %}_CHECK {
+      connect_timeout 3
+    }
+  }
+  {% endfor %}
+}
+{% endfor %}

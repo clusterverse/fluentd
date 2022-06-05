@@ -1,0 +1,78 @@
+---
+
+- name: fluentd-loadbalancer-ha-keepalived | Allow ip_forward (net.ipv4.ip_forward=1)
+  become: yes
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: fluentd-loadbalancer-ha-keepalived | Allow apps to bind on non-local addresses (net.ipv4.ip_nonlocal_bind=1)
+  become: yes
+  sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: fluentd-loadbalancer-ha-keepalived | Accept packets with local source addresses (net.ipv4.conf.eth0.accept_local=1)
+  become: yes
+  sysctl:
+    name: "net.ipv4.conf.{{ansible_default_ipv4.interface}}.accept_local"
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+#- name: fluentd-loadbalancer-ha-keepalived | Add the br-netfilter module
+#  become: yes
+#  modprobe:
+#    name: br-netfilter
+#    state: present
+#
+#- name: fluentd-loadbalancer-ha-keepalived | (net.bridge.bridge-nf-call-iptables=1)
+#  become: yes
+#  sysctl:
+#    name: net.bridge.bridge-nf-call-iptables
+#    value: 1
+#    sysctl_set: yes
+#    state: present
+#    reload: yes
+
+- name: fluentd-loadbalancer-ha-keepalived | Install keepalived package
+  become: yes
+  apt:
+    update_cache: yes
+    name: ['keepalived']
+    state: present
+  notify: ["restart keepalived"]
+
+- name: fluentd-loadbalancer-ha-keepalived | Configure keepalived
+  become: yes
+  template:
+    src: keepalived-loadbalancer-ha.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+  vars:
+    keepalived_real_servers: "{{ groups['fluentd'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | sort }}"
+    keepalived_peers: "{{ groups['fluentd'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | difference(ansible_host) | sort }}"
+  notify: ["restart keepalived"]
+
+- name: fluentd-loadbalancer-ha-keepalived | Configure keepalived logging
+  become: yes
+  lineinfile:
+    dest: "/etc/default/keepalived"
+    regexp: '^DAEMON_ARGS="(.*")'
+    line: 'DAEMON_ARGS="--log-detail \1'
+    backrefs: yes
+  notify: ["restart keepalived"]
+
+- name: fluentd-loadbalancer-ha-keepalived | copy keepalived bypass_ipvs.sh
+  become: yes
+  copy: src=keepalived_bypass_ipvs.sh dest=/etc/keepalived/bypass_ipvs.sh owner=root group=root mode=0755
+  notify: ["restart keepalived"]
+
+- name: fluentd-loadbalancer-ha-keepalived | flush handlers
+  meta: flush_handlers

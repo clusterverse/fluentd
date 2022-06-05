@@ -1,0 +1,44 @@
+
+<system>
+{# NOTE: Reserve 1 CPU for the supervisor process #}
+  workers {% if ansible_processor_vcpus > 1 %}{{ ansible_processor_vcpus - 1 }}{%else%}{{ ansible_processor_vcpus }}{%endif%}
+  log_level info
+  root_dir /var/log/fluentd
+</system>
+
+{% if 'sources_single_worker' in fluentd.conffile %}
+{% for source in fluentd.conffile.sources_single_worker %}
+<worker 0>
+  <source>
+    {{ source.config | indent(4) }}
+  </source>
+</worker>
+{% endfor %}
+{% endif %}
+
+{% if 'sources_listeners' in fluentd.conffile %}
+{% for source in fluentd.conffile.sources_listeners %}
+<source>
+  @type {{ source.type }}
+  port {{ source.port }}
+  bind {{ source.bind | default('0.0.0.0') }}
+  {{ source.config | indent(2) | default('') }}
+</source>
+{% endfor %}
+{% endif %}
+
+{% if 'filters' in fluentd.conffile %}
+{% for filter in fluentd.conffile.filters %}
+{{ filter.config }}
+{% endfor %}
+{% endif %}
+
+{% if 'labels' in fluentd.conffile %}
+{% for label in fluentd.conffile.labels %}
+{{ label.config }}
+{% endfor %}
+{% endif %}
+
+{% for match in fluentd.conffile.matches %}
+{{ match.config }}
+{% endfor %}

@@ -1,0 +1,23 @@
+[Unit]
+Description=Fluentd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ fluentd.user }}
+Group={{ fluentd.group }}
+LimitNOFILE=65536
+Environment=LD_PRELOAD={{jemalloc2_path}}
+PIDFile={{ fluentd.pid_dir }}/fluentd.pid
+RuntimeDirectory=fluentd
+Type=forking
+
+ExecStart=/usr/local/bin/fluentd -d {{ fluentd.pid_dir }}/fluentd.pid -c {{ fluentd.conf_dir }}/fluentd.conf -o {{ fluentd.log_file }} --log-rotate-size {{ fluentd.log_rotate_size }}  --log-rotate-age {{ fluentd.log_rotation_max_log_files }}
+ExecStop=/bin/kill -TERM ${MAINPID}
+ExecReload=/bin/kill -HUP ${MAINPID}
+Restart=always
+KillSignal=SIGTERM
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,30 @@
+---
+
+redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback']
+
+redeploy_scheme: _scheme_addallnew_rmdisk_rollback
+#redeploy_scheme: _scheme_addnewvm_rmdisk_rollback
+#redeploy_scheme: _scheme_rmvm_rmdisk_only
+#redeploy_scheme: _scheme_rmvm_keepdisk_rollback
+#redeploy_scheme: _noredeploy_scale_in_only
+
+skip_dynamic_inventory_sshwait: true
+test_touch_disks: true
+debug_nested_log_output: true
+canary_tidy_on_success: true
+
+app_name: "fluentd-{{lookup('pipe', 'whoami') | lower}}"      # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
+app_class: "observability"                      # The class of application (e.g. 'database', 'webserver'); becomes part of the fqdn
+
+cluster_name: "{{app_name}}-{{buildenv}}"       # Identifies the cluster within the cloud environment
+
+cluster_vars:
+  type: "{{cloud_type}}"
+  region: "{{region}}"
+  custom_tagslabels:
+    inv_environment_id: "{{buildenv}}"
+    inv_service_id: "{{app_class}}"
+    inv_cluster_id: "{{cluster_name}}"
+    inv_cluster_type: "{{app_name}}"
+  ssh_whitelist: &ssh_whitelist ['82.69.177.168/29', '10.50.0.0/16']
+_ssh_whitelist: *ssh_whitelist
