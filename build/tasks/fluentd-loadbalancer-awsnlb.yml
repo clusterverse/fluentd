@@ -20,38 +20,43 @@
   elb_target_group:
     aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
     aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
-    name: "{{cluster_name}}-{{item.port}}"
-    protocol: "{% if 'config' in item and 'transport udp' in item.config %}UDP{% else %}TCP{% endif %}"
-    port: "{{ item.port }}"
+    name: "{{cluster_name}}-{{item.1.port}}--{{'int' if item.0=='internal' else 'ext'}}"
+    protocol: "{% if 'config' in item.1 and 'transport udp' in item.1.config %}UDP{% else %}TCP{% endif %}"
+    port: "{{ item.1.port }}"
     vpc_id: "{{ r__ec2_instance_info.instances | json_query(\"[].vpc_id | [0]\") }}"
-    health_check_port: "{{ item.port if 'config' not in item or 'transport udp' not in item.config else omit }}"
-    health_check_protocol: "{{ 'TCP' if 'config' not in item or 'transport udp' not in item.config else omit }}"
-    health_check_interval: "{{ 10 if 'config' not in item or 'transport udp' not in item.config else omit }}"
+    health_check_port: "{{ item.1.port if 'config' not in item.1 or 'transport udp' not in item.1.config else 22 }}"
+    health_check_protocol: "TCP"
+    health_check_interval: 10
     stickiness_enabled: no
     successful_response_codes: "200,250-260"
-    targets: "{{ r__ec2_instance_info.instances | json_query(\"[].{Id: instance_id, Port: `\" + item.port|string + \"`}\") }}"
+    targets: "{{ r__ec2_instance_info.instances | json_query(\"[].{Id: instance_id, Port: `\" + item.1.port|string + \"`}\") }}"
     state: present
   delegate_to: localhost
   run_once: true
   register: r__elb_target_group
-  with_items: "{{ fluentd.conffile.sources_listeners | json_query(\"[?contains(keys(@), `port`)]\") }}"
+  with_nested:
+    - "{{ loadbalancer.awsnlb_schemes }}"
+    - "{{ fluentd.conffile.sources_listeners | json_query(\"[?contains(keys(@), `port`)]\") }}"
 
-- debug: msg={{r__elb_target_group}}
+- name: fluentd-load-balancer-awsnlb | r__elb_target_group
+  debug: msg="{{r__elb_target_group}}"
+  run_once: true
 
 - name: fluentd-load-balancer-awsnlb | Create an N/ELB and attach listeners
   elb_network_lb:
     aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
     aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
-    name: "{{cluster_name}}"
+    name: "{{cluster_name}}--{{'int' if item.0=='internal' else 'ext'}}"
     subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
     cross_zone_load_balancing: yes
-    scheme: internal
-    listeners: "{{ r__elb_target_group.results | json_query(\"[].{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
+    scheme: "{{ item.0 }}"
+    listeners: "{{ item.1 | json_query(\"[].{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
     state: present
     wait: yes
   delegate_to: localhost
   run_once: true
   register: r__elb_network_lb
+  loop: "{{ r__elb_target_group.results | groupby('item.0') }}"
 
 - name: fluentd-load-balancer-awsnlb | r__elb_network_lb
   debug: msg="{{r__elb_network_lb}}"
@@ -79,13 +84,15 @@
     record: "{{loadbalancer.url}}"
     type: CNAME
     ttl: 30
-    value: "{{ r__elb_network_lb.dns_name }}"
-    private_zone: "{{ item.Config.PrivateZone }}"
+    value: "{{ item.0.dns_name }}"
+    private_zone: "{{ item.1.Config.PrivateZone }}"
     overwrite: true
-  with_items: "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
+  with_nested:
+    - "{{ r__elb_network_lb.results }}"
+    - "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
   delegate_to: localhost
   run_once: true
-  when: cluster_vars.dns_server == "route53"  and  loadbalancer.url is defined and loadbalancer.url != ''
+  when: loadbalancer.url is defined and loadbalancer.url != ''  and  ((item.0.item.0 == 'internal' and item.1.Config.PrivateZone|bool) or (item.0.item.0 == 'internet-facing' and not item.1.Config.PrivateZone|bool) )
 
 #- name: fluentd-load-balancer-awsnlb | Wait for the NLB to be fully UP   (NOTE - only works if target is valid)
 #  wait_for:

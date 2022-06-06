@@ -30,6 +30,10 @@ cluster_vars:
       ports: "{{ fluentd.conffile.sources_listeners | json_query(\"[].port\") | sort }}"
       cidr_ip: "{{_ssh_whitelist}}"
       rule_desc: "fluentd ports"
+    - proto: "udp"
+      ports: "{{ fluentd.conffile.sources_listeners | json_query(\"[].port\") | sort }}"
+      cidr_ip: "{{_ssh_whitelist}}"
+      rule_desc: "fluentd ports"
     - proto: all
       group_name: ["{{cluster_name}}-sg"]
       rule_desc: "Access from all VMs attached to the {{ cluster_name }}-sg group"

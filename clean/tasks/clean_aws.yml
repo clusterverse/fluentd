@@ -5,7 +5,6 @@
       community.aws.elb_application_lb_info:
         aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
         aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
-        names: "{{cluster_name}}"
       register: r__elb_application_lb_info
 
     - debug: msg={{r__elb_application_lb_info}}
@@ -14,8 +13,9 @@
       elb_network_lb:
         aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
         aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
-        name: "{{cluster_name}}"
+        name: "{{ item }}"
         state: absent
+      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"--')].load_balancer_name\")}}"
 
     - name: clean_aws | Delete the elb_target_groups
       elb_target_group:
@@ -23,7 +23,7 @@
         aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
         name: "{{item}}"
         state: absent
-      with_items: "{{r__elb_application_lb_info | json_query('load_balancers[].listeners[].default_actions[].target_group_arn') | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"
+      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"--')].listeners[].default_actions[].target_group_arn\") | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"
 
     - block:
         - name: clean_aws | Gather info for pre-existing Hosted Zones (public and/or private)
@@ -61,5 +61,5 @@
             value: ["{{ item.set.value }}"]
             private_zone: "{{ item.item.Config.PrivateZone }}"
           with_items: "{{ r__route53_cname.results }}"
-          when: item.failed == false and item.set.keys()|length
+          when: item.failed == false and item.resource_record_sets|length     # Note: when set is empty, it returns an empty list, rather than an empty dict as it should
       when: cluster_vars.dns_server == "route53"

@@ -79,6 +79,7 @@ loadbalancer:
   lb_ha_mgr: ""         # The load-balancing/HA solution. One of: keepalived_ipvs, awsnlb, gcp_dns_healthcheck
   keepalived:
     vip_cidr: ""        # MUST be present for loadbalancer.lb_ha_mgr="keepalived_ipvs"; will be filled automatically for aws/gcp
+  awsnlb_schemes: ['internal']       # An array of one or both of: ['internet-facing', 'internal']
 
 
 
