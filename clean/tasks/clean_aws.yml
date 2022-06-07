@@ -5,6 +5,7 @@
       community.aws.elb_application_lb_info:
         aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
         aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        region: "{{cluster_vars.region}}"
       register: r__elb_application_lb_info
 
     - debug: msg={{r__elb_application_lb_info}}
@@ -13,6 +14,7 @@
       elb_network_lb:
         aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
         aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        region: "{{cluster_vars.region}}"
         name: "{{ item }}"
         state: absent
       with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"--')].load_balancer_name\")}}"
@@ -21,6 +23,7 @@
       elb_target_group:
         aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
         aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        region: "{{cluster_vars.region}}"
         name: "{{item}}"
         state: absent
       with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"--')].listeners[].default_actions[].target_group_arn\") | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"

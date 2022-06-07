@@ -13,4 +13,4 @@
         name: clusterverse/redeploy
       vars:
         mainclusteryml: "cluster.yml"
-        predeleterole: "opensearch/_redeploy_predelete"
+#        predeleterole: "fluentd/_redeploy_predelete"

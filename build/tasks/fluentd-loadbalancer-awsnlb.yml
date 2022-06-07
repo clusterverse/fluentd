@@ -20,6 +20,7 @@
   elb_target_group:
     aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
     aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    region: "{{cluster_vars.region}}"
     name: "{{cluster_name}}-{{item.1.port}}--{{'int' if item.0=='internal' else 'ext'}}"
     protocol: "{% if 'config' in item.1 and 'transport udp' in item.1.config %}UDP{% else %}TCP{% endif %}"
     port: "{{ item.1.port }}"
@@ -46,6 +47,7 @@
   elb_network_lb:
     aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
     aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    region: "{{cluster_vars.region}}"
     name: "{{cluster_name}}--{{'int' if item.0=='internal' else 'ext'}}"
     subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
     cross_zone_load_balancing: yes
