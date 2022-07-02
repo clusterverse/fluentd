@@ -8,19 +8,21 @@
 
 - name: fluentd-binary | Install fluentd gem
   become: yes
-  gem:
+  community.general.gem:
     name: fluentd
     state: present
     version: "{{ fluentd.version }}"
+    norc: yes
     user_install: no
   notify: restart fluentd
 
 - name: fluentd-binary | Install fluentd plugin gems
   become: yes
-  gem:
+  community.general.gem:
     name: "{{ item }}"
     state: present
     version: "{{ fluentd.plugins[item].version }}"
+    norc: yes
     user_install: no
   with_items: "{{ fluentd.plugins.keys() | list }}"
   notify: restart fluentd

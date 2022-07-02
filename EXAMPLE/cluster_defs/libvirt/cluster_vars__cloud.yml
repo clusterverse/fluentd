@@ -4,15 +4,10 @@ use_local_artifact: true
 
 _scheme_rmvm_keepdisk_rollback__copy_or_move: "move"
 
-prometheus_node_exporter_install: false
-filebeat_install: false
-metricbeat_install: false
-
-
 ## Source images from which to clone.  Set these as variables so they can be selected on command line (for automated testing).
-#_ubuntu2004image: "gold-ubuntu2004-20211122141629"        # Specific Ubuntu Focal (20.04.x) image
-_ubuntu2004image: "gold-ubuntu2004-*"                     # Latest Ubuntu Focal (20.04.x) image
+#_ubuntu2204image: "gold-ubuntu2204-20211122141629"        # Specific Ubuntu Jammy (22.04.x) image
 _ubuntu2204image: "gold-ubuntu2204-*"                     # Latest Ubuntu Jammy (22.04.x) image
+_ubuntu2004image: "gold-ubuntu2004-*"                     # Latest Ubuntu Focal (20.04.x) image
 _centos7image: "gold-centos7-*"
 _alma8image: "gold-alma8-*"
 

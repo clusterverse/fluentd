@@ -28,13 +28,13 @@ vrrp_instance VI_1 {
     {{ loadbalancer.keepalived.vip_cidr }}
   }
 
-  notify_master "/etc/keepalived/bypass_ipvs.sh del {{loadbalancer.keepalived.vip_cidr | ipaddr('address')}}"
-  notify_backup "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ipaddr('address')}}"
-  notify_fault "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ipaddr('address')}}"
+  notify_master "/etc/keepalived/bypass_ipvs.sh del {{loadbalancer.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}"
+  notify_backup "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}"
+  notify_fault "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}"
 }
 
 {% for source in fluentd.conffile.sources_listeners | json_query('[?contains(keys(@), `port`)] | sort_by(@, &port)') -%}
-virtual_server {{ loadbalancer.keepalived.vip_cidr | ipaddr('address') }} {{ source.port }} {
+virtual_server {{ loadbalancer.keepalived.vip_cidr | ansible.utils.ipaddr('address') }} {{ source.port }} {
   delay_loop 5
   lvs_sched rr
   lvs_method DR

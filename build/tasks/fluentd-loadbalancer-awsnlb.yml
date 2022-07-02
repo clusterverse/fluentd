@@ -25,6 +25,8 @@
     protocol: "{% if 'config' in item.1 and 'transport udp' in item.1.config %}UDP{% else %}TCP{% endif %}"
     port: "{{ item.1.port }}"
     vpc_id: "{{ r__ec2_instance_info.instances | json_query(\"[].vpc_id | [0]\") }}"
+#    deregistration_connection_termination: "{{ false if 'config' not in item.1 or 'transport udp' not in item.1.config else true }}"
+    deregistration_delay_timeout: 30
     health_check_port: "{{ item.1.port if 'config' not in item.1 or 'transport udp' not in item.1.config else 22 }}"
     health_check_protocol: "TCP"
     health_check_interval: 10

@@ -1,9 +1,7 @@
 ---
 
-prometheus_node_exporter_install: false
-filebeat_install: false
-metricbeat_install: false
-
+# A list of CIDRs from which to allow SSH access
+ssh_whitelist:  ['82.69.177.168/29', '10.50.0.0/16']
 
 cluster_vars:
   dns_cloud_internal_domain: "{{region}}.compute.internal"    # The cloud-internal zone as defined by the cloud provider (e.g. GCP, AWS)
@@ -24,15 +22,15 @@ cluster_vars:
   secgroup_new:
     - proto: "tcp"
       ports: ["22"]
-      cidr_ip: "{{_ssh_whitelist}}"
+      cidr_ip: "{{ssh_whitelist}}"
       rule_desc: "SSH Access"
     - proto: "tcp"
       ports: "{{ fluentd.conffile.sources_listeners | json_query(\"[].port\") | sort }}"
-      cidr_ip: "{{_ssh_whitelist}}"
+      cidr_ip: "{{ssh_whitelist}}"
       rule_desc: "fluentd ports"
     - proto: "udp"
       ports: "{{ fluentd.conffile.sources_listeners | json_query(\"[].port\") | sort }}"
-      cidr_ip: "{{_ssh_whitelist}}"
+      cidr_ip: "{{ssh_whitelist}}"
       rule_desc: "fluentd ports"
     - proto: all
       group_name: ["{{cluster_name}}-sg"]

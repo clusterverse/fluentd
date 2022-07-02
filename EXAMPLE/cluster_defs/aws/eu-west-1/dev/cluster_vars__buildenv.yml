@@ -20,7 +20,7 @@ cluster_vars:
 #          $ANSIBLE_VAULT;1.2;AES256;dev
 #          7669080460651349243347331538721104778691266429457726036813912140404310
     vpc_name: "{{buildenv}}"
-    vpc_subnet_name_prefix: "{{buildenv}}-public-{{region}}"
+    vpc_subnet_name_prefix: "{{buildenv}}-private-{{region}}"
     key_name: "aws_ansible__id_rsa"
     termination_protection: "no"
 #    nsupdate_cfg: {server: "", key_name: "", key_secret: ""}      # If you're using bind9 (or other nsupdate-compatible 'dns_server')
