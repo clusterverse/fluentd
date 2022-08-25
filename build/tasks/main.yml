@@ -12,6 +12,7 @@
   include_tasks:
     file: fluentd-static-config.yml
 
-- name: fluentd | install/configure load balancer
+- name: fluentd | install/configure load balancer (when we have >1 fluentd node)
   include_tasks:
     file: fluentd-loadbalancer.yml
+  when: groups['fluentd'] | length > 1
