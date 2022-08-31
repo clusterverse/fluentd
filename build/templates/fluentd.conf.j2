@@ -10,18 +10,23 @@
 {% for source in fluentd.conffile.sources_single_worker %}
 <worker 0>
   <source>
+    @type {{ source.type }}
     {{ source.config | indent(4) }}
   </source>
 </worker>
 {% endfor %}
 {% endif %}
 
-{% if 'sources_listeners' in fluentd.conffile %}
-{% for source in fluentd.conffile.sources_listeners %}
+{% if 'sources_multi_worker' in fluentd.conffile %}
+{% for source in fluentd.conffile.sources_multi_worker %}
 <source>
   @type {{ source.type }}
+{% if 'port' in source %}
   port {{ source.port }}
+{% endif %}
+{% if 'bind' in source %}
   bind {{ source.bind | default('0.0.0.0') }}
+{% endif %}
   {{ source.config | indent(2) | default('') }}
 </source>
 {% endfor %}

@@ -15,7 +15,7 @@
           name: fluentd
           state: restarted
           enabled: yes
-      {% for source in fluentd.conffile.sources_listeners %}
+      {% for source in fluentd.conffile.sources_multi_worker %}
       {% if 'port' in source and ('config' not in source or 'config' in source and 'transport udp' not in source.config) %}
       - module: wait_for
         args:

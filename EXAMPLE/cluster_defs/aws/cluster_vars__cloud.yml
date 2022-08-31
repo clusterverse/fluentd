@@ -25,11 +25,11 @@ cluster_vars:
       cidr_ip: "{{ssh_whitelist}}"
       rule_desc: "SSH Access"
     - proto: "tcp"
-      ports: "{{ fluentd.conffile.sources_listeners | json_query(\"[].port\") | sort }}"
+      ports: "{{ fluentd.conffile.sources_multi_worker | json_query(\"[].port\") | sort }}"
       cidr_ip: "{{ssh_whitelist}}"
       rule_desc: "fluentd ports"
     - proto: "udp"
-      ports: "{{ fluentd.conffile.sources_listeners | json_query(\"[].port\") | sort }}"
+      ports: "{{ fluentd.conffile.sources_multi_worker | json_query(\"[].port\") | sort }}"
       cidr_ip: "{{ssh_whitelist}}"
       rule_desc: "fluentd ports"
     - proto: all

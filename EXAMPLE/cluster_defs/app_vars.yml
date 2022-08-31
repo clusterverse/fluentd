@@ -6,7 +6,7 @@ fluentd:
   user: fluentd
   group: fluentd
   data_dir: "/fluentd"
-  version: "1.14.6"
+  version: "1.15.2"
   conf_dir: "/etc/fluentd"
   pid_dir: "/var/run/fluentd"
   log_file: "/var/log/fluentd/fluent.log"
@@ -18,19 +18,23 @@ fluentd:
     fluent-plugin-node-exporter-metrics:
       version: "0.2.1"
     fluent-plugin-opensearch:
-      version: "1.0.6"
+      version: "1.0.8"
     fluent-plugin-cloudwatch-logs:
-      version: "0.14.2"
+      version: "0.14.3"
+    fluent-plugin-cloudwatch:
+      version: "2.1.1"
     fluent-plugin-record-modifier:
       version: "2.1.0"
     fluent-plugin-rewrite-tag-filter:
       version: "2.4.0"
     fluent-plugin-filter-list:
       version: "0.7.5"
+    fluent-plugin-s3:
+      version: "1.7.1"
   conffile:
     sources_single_worker:
-      - config: |-
-          @type systemd
+      - type: systemd
+        config: |-
           tag local_systemd
           path /var/log/journal
           read_from_head true
@@ -44,12 +48,12 @@ fluentd:
             fields_strip_underscores true
             fields_lowercase true
           </entry>
-      - config: |-
-          @type node_exporter_metrics
+      - type: node_exporter_metrics
+        config: |-
           tag node_metrics
           scrape_interval 30
           cpufreq false      # cpufreq requires a capability, which doesn't work.
-    sources_listeners:
+    sources_multi_worker:
      - type: monitor_agent
        port: 24220
        bind: 0.0.0.0

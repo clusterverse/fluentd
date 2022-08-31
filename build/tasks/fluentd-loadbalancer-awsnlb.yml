@@ -39,7 +39,7 @@
   register: r__elb_target_group
   with_nested:
     - "{{ loadbalancer.awsnlb_schemes }}"
-    - "{{ fluentd.conffile.sources_listeners | json_query(\"[?contains(keys(@), `port`)]\") }}"
+    - "{{ fluentd.conffile.sources_multi_worker | json_query(\"[?contains(keys(@), `port`)]\") }}"
 
 - name: fluentd-load-balancer-awsnlb | r__elb_target_group
   debug: msg="{{r__elb_target_group}}"
