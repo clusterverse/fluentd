@@ -6,7 +6,7 @@
   root_dir /var/log/fluentd
 </system>
 
-{% if 'sources_single_worker' in fluentd.conffile %}
+{% if (fluentd.conffile.sources_single_worker is defined)  and  (fluentd.conffile.sources_single_worker|type_debug == 'list')  and  (fluentd.conffile.sources_single_worker|length) %}
 {% for source in fluentd.conffile.sources_single_worker %}
 <worker 0>
   <source>
@@ -17,7 +17,7 @@
 {% endfor %}
 {% endif %}
 
-{% if 'sources_multi_worker' in fluentd.conffile %}
+{% if (fluentd.conffile.sources_multi_worker is defined)  and  (fluentd.conffile.sources_multi_worker|type_debug == 'list')  and  (fluentd.conffile.sources_multi_worker|length) %}
 {% for source in fluentd.conffile.sources_multi_worker %}
 <source>
   @type {{ source.type }}
@@ -32,18 +32,20 @@
 {% endfor %}
 {% endif %}
 
-{% if 'filters' in fluentd.conffile %}
+{% if (fluentd.conffile.filters is defined)  and  (fluentd.conffile.filters|type_debug == 'list')  and  (fluentd.conffile.filters|length) %}
 {% for filter in fluentd.conffile.filters %}
 {{ filter.config }}
 {% endfor %}
 {% endif %}
 
-{% if 'labels' in fluentd.conffile %}
+{% if (fluentd.conffile.labels is defined)  and  (fluentd.conffile.labels|type_debug == 'list')  and  (fluentd.conffile.labels|length) %}
 {% for label in fluentd.conffile.labels %}
 {{ label.config }}
 {% endfor %}
 {% endif %}
 
+{% if (fluentd.conffile.matches is defined)  and  (fluentd.conffile.matches|type_debug == 'list')  and  (fluentd.conffile.matches|length) %}
 {% for match in fluentd.conffile.matches %}
 {{ match.config }}
 {% endfor %}
+{% endif %}

@@ -16,13 +16,35 @@
     user_install: no
   notify: restart fluentd
 
-- name: fluentd-binary | Install fluentd plugin gems
+- name: fluentd-binary | Install fluentd plugin from rubygems
   become: yes
   community.general.gem:
     name: "{{ item }}"
     state: present
-    version: "{{ fluentd.plugins[item].version }}"
+    version: "{{ fluentd.plugins.rubygems[item].version }}"
     norc: yes
     user_install: no
-  with_items: "{{ fluentd.plugins.keys() | list }}"
+  with_items: "{{ fluentd.plugins.rubygems.keys() | list }}"
   notify: restart fluentd
+
+- block:
+    - name: fluentd-binary | create temporary git build directory
+      become: yes
+      tempfile: { state: directory, suffix: gitBuildTMP }
+      register: tmp_build_dir
+
+    - name: fluentd-binary | get fluentd plugin from git
+      become: yes
+      git:
+        repo: "{{ fluentd.plugins.source[item].git.repo }}"
+        version: "{{ fluentd.plugins.source[item].git.version | default(HEAD)}}"
+        dest: "{{ tmp_build_dir.path }}/{{item}}"
+      with_items: "{{ fluentd.plugins.source.keys() | list }}"
+
+    - name: fluentd-binary | build and install fluentd plugin from git
+      become: yes
+      shell: "gem uninstall {{item}}; gem build {{item}}.gemspec; sudo gem install {{item}}-*.gem"
+      args:
+        chdir: "{{ tmp_build_dir.path }}/{{item}}"
+      with_items: "{{ fluentd.plugins.source.keys() | list }}"
+      notify: restart fluentd
