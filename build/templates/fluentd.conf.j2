@@ -1,7 +1,9 @@
 
 <system>
-{# NOTE: Reserve 1 CPU for the supervisor process #}
+{% if ansible_processor_vcpus is defined %}
+  {# NOTE: Reserve 1 CPU for the supervisor process #}
   workers {% if ansible_processor_vcpus > 1 %}{{ ansible_processor_vcpus - 1 }}{%else%}{{ ansible_processor_vcpus }}{%endif%}
+{% endif %}
   log_level info
   root_dir /var/log/fluentd
 </system>
