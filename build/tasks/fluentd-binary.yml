@@ -25,6 +25,7 @@
     norc: yes
     user_install: no
   with_items: "{{ fluentd.plugins.rubygems.keys() | list }}"
+  when: "fluentd.plugins.rubygems is defined and fluentd.plugins.rubygems and fluentd.plugins.rubygems | type_debug == 'dict'"
   notify: restart fluentd
 
 - block:
@@ -48,3 +49,4 @@
         chdir: "{{ tmp_build_dir.path }}/{{item}}"
       with_items: "{{ fluentd.plugins.source.keys() | list }}"
       notify: restart fluentd
+  when: "fluentd.plugins.source is defined and fluentd.plugins.source and fluentd.plugins.source | type_debug == 'dict'"

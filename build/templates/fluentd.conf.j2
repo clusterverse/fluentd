@@ -5,7 +5,7 @@
   workers {% if ansible_processor_vcpus > 1 %}{{ ansible_processor_vcpus - 1 }}{%else%}{{ ansible_processor_vcpus }}{%endif%}
 {% endif %}
   log_level info
-  root_dir /var/log/fluentd
+  root_dir {{ fluentd.log_file | dirname }}
 </system>
 
 {% if (fluentd.conffile.sources_single_worker is defined)  and  (fluentd.conffile.sources_single_worker|type_debug == 'list')  and  (fluentd.conffile.sources_single_worker|length) %}
