@@ -17,7 +17,7 @@
         region: "{{cluster_vars.region}}"
         name: "{{ item }}"
         state: absent
-      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"--')].load_balancer_name\")}}"
+      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"-')].load_balancer_name\")}}"
 
     - name: clean_aws | Delete the elb_target_groups
       elb_target_group:
@@ -26,7 +26,7 @@
         region: "{{cluster_vars.region}}"
         name: "{{item}}"
         state: absent
-      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"--')].listeners[].default_actions[].target_group_arn\") | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"
+      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"-')].listeners[].default_actions[].target_group_arn\") | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"
 
     - block:
         - name: clean_aws | Gather info for pre-existing Hosted Zones (public and/or private)
