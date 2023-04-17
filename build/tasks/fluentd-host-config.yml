@@ -43,10 +43,10 @@
     limit_item: "{{item.limit_item}}"
     value: "{{item.value}}"
   with_items:
-    - { domain: "*", limit_type: '-', limit_item: 'nofile', value: 39693561 }
+    - { domain: "*", limit_type: '-', limit_item: 'nofile', value: 262144 }
     - { domain: "*", limit_type: '-', limit_item: 'nproc', value: 39693561 }
     - { domain: "*", limit_type: '-', limit_item: 'memlock', value: unlimited }
-    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nofile', value: 39693561 }
+    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nofile', value: 262144 }
     - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nproc', value: 39693561 }
     - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'memlock', value: unlimited }
 
