@@ -6,9 +6,10 @@ fluentd:
   user: fluentd
   group: fluentd
   data_dir: "/fluentd"
-  version: "1.15.2"
+  version: "1.16.1"
   conf_dir: "/etc/fluentd"
   pid_dir: "/var/run/fluentd"
+  limit_nofile: 1048576                   # max size permitted by fs.nr_open defaults to 2^20 (1048576)
   log_file: "/var/log/fluentd/fluent.log"
   log_rotate_size: 52428800               # --log-rotate-size BYTES => 50 MB
   log_rotation_max_log_files: 10          # default: 10 (rotate through a max of 10 fluent.log.* files)
@@ -19,7 +20,7 @@ fluentd:
       fluent-plugin-node-exporter-metrics:
         version: "0.2.1"
       fluent-plugin-opensearch:
-        version: "1.0.8"
+        version: "1.1.0"
       fluent-plugin-cloudwatch-logs:
         version: "0.14.3"
       fluent-plugin-cloudwatch:
@@ -31,7 +32,7 @@ fluentd:
       fluent-plugin-filter-list:
         version: "0.7.5"
       fluent-plugin-s3:
-        version: "1.7.1"
+        version: "1.7.2"
     source:
       fluent-plugin-cloudwatch:
         git:

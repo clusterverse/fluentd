@@ -1,72 +1,5 @@
 ---
 
-- name: fluentd-host-config | set basic sysctls
-  become: yes
-  sysctl:
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-    reload: yes
-    sysctl_set: yes
-    state: present
-  with_items:
-    - {name: vm.swappiness,    value: 0}
-    - {name: fs.file-max,      value: 655360}
-    - {name: vm.max_map_count, value: 262144}
-
-
-- name: fluentd-host-config | set network sysctls (https://docs.fluentd.org/installation/before-install#optimize-the-network-kernel-parameters)
-  become: yes
-  sysctl:
-    name: "{{ item.name }}"
-    value: "{{ item.value }}"
-    reload: yes
-    sysctl_set: yes
-    state: present
-  with_items:
-    - {name: net.core.somaxconn,                  value: 1024}
-    - {name: net.core.netdev_max_backlog,         value: 5000}
-    - {name: net.core.rmem_max,                   value: 16777216}
-    - {name: net.core.wmem_max,                   value: 16777216}
-    - {name: net.ipv4.tcp_rmem,                   value: 4096 12582912 16777216}
-    - {name: net.ipv4.tcp_wmem,                   value: 4096 12582912 16777216}
-    - {name: net.ipv4.tcp_max_syn_backlog,        value: 8096}
-    - {name: net.ipv4.tcp_slow_start_after_idle,  value: 0}
-    - {name: net.ipv4.tcp_tw_reuse,               value: 1}
-    - {name: net.ipv4.ip_local_port_range,        value: 10240 65535}
-
-
-- name: fluentd-host-config | Add or modify hard nofile limits for fluentd and wildcard domains
-  become: yes
-  pam_limits:
-    domain: "{{item.domain}}"
-    limit_type: "{{item.limit_type}}"
-    limit_item: "{{item.limit_item}}"
-    value: "{{item.value}}"
-  with_items:
-    - { domain: "*", limit_type: '-', limit_item: 'nofile', value: 262144 }
-    - { domain: "*", limit_type: '-', limit_item: 'nproc', value: 39693561 }
-    - { domain: "*", limit_type: '-', limit_item: 'memlock', value: unlimited }
-    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nofile', value: 262144 }
-    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nproc', value: 39693561 }
-    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'memlock', value: unlimited }
-
-
-- name: fluentd-host-config | enforce PAM limits
-  become: yes
-  lineinfile:
-    path: /etc/pam.d/common-session
-    line: 'session required pam_limits.so'
-    insertafter: EOF
-
-#- name: fluentd-host-config | set cap_dac_read_search+eip (NOTE - only for the cpufreq collector in fluent-plugin-node-exporter-metrics)
-#  become: yes
-#  community.general.capabilities:
-#    path: /usr/bin/ruby3.0
-#    capability: cap_dac_read_search=+eip
-#    state: present
-#  when: "'fluent-plugin-node-exporter-metrics' in fluentd.plugins"
-
-
 - name: fluentd-host-config | Create "{{fluentd.group}}" unix group
   become: yes
   group:
@@ -92,3 +25,63 @@
     owner: "{{fluentd.user}}"
     group: "{{fluentd.group}}"
     mode: 0755
+
+- name: fluentd-host-config | sysctl - disable swappiness
+  become: yes
+  sysctl:
+    name: "vm.swappiness"
+    value: 0
+    reload: yes
+    sysctl_set: yes
+    state: present
+
+- name: fluentd-host-config | set network sysctls (https://docs.fluentd.org/installation/before-install#optimize-the-network-kernel-parameters)
+  become: yes
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    reload: yes
+    sysctl_set: yes
+    state: present
+  with_items:
+    - {name: net.core.somaxconn,                  value: 1024}
+    - {name: net.core.netdev_max_backlog,         value: 5000}
+    - {name: net.core.rmem_max,                   value: 16777216}
+    - {name: net.core.wmem_max,                   value: 16777216}
+    - {name: net.ipv4.tcp_rmem,                   value: 4096 12582912 16777216}
+    - {name: net.ipv4.tcp_wmem,                   value: 4096 12582912 16777216}
+    - {name: net.ipv4.tcp_max_syn_backlog,        value: 8096}
+    - {name: net.ipv4.tcp_slow_start_after_idle,  value: 0}
+    - {name: net.ipv4.tcp_tw_reuse,               value: 1}
+    - {name: net.ipv4.ip_local_port_range,        value: 10240 65535}
+
+- name: fluentd-host-config | Add or modify limits for fluentd and wildcard domains
+  become: yes
+  pam_limits:
+    domain: "{{item.domain}}"
+    limit_type: "{{item.limit_type}}"
+    limit_item: "{{item.limit_item}}"
+    value: "{{item.value}}"
+  with_items:
+    - { domain: "*", limit_type: '-', limit_item: 'nofile', value: "{{fluentd.limit_nofile | default(1048576)}}" }
+    - { domain: "*", limit_type: '-', limit_item: 'nproc', value: 39693561 }
+    - { domain: "*", limit_type: '-', limit_item: 'memlock', value: unlimited }
+    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nofile', value: "{{fluentd.limit_nofile | default(1048576)}}" }
+    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'nproc', value: 39693561 }
+    - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'memlock', value: unlimited }
+
+- name: fluentd-host-config | enforce PAM limits
+  become: yes
+  lineinfile:
+    path: /etc/pam.d/common-session
+    line: 'session required pam_limits.so'
+    insertafter: EOF
+
+#- name: fluentd-host-config | set cap_dac_read_search+eip (NOTE - only for the cpufreq collector in fluent-plugin-node-exporter-metrics)
+#  become: yes
+#  community.general.capabilities:
+#    path: /usr/bin/ruby3.0
+#    capability: cap_dac_read_search=+eip
+#    state: present
+#  when: "'fluent-plugin-node-exporter-metrics' in fluentd.plugins"
+

@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 User={{ fluentd.user }}
 Group={{ fluentd.group }}
-LimitNOFILE=65536
+LimitNOFILE={{ fluentd.limit_nofile }}
 Environment=LD_PRELOAD={{jemalloc2_path}}
 PIDFile={{ fluentd.pid_dir }}/fluentd.pid
 RuntimeDirectory=fluentd
