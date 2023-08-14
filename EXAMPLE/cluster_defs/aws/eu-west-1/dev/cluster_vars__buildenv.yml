@@ -29,10 +29,10 @@ cluster_vars:
       fluentd:
         auto_volumes:
           - {device_name: "/dev/sda1", mountpoint: "/", fstype: "ext4", volume_type: "gp3", volume_size: 8, encrypted: True, delete_on_termination: true}
-          - {device_name: "/dev/sdf", mountpoint: "{{ fluentd.log_file | dirname }}", fstype: "ext4", volume_type: "gp3", volume_size: 1, encrypted: True, "delete_on_termination": true}
-          - {device_name: "/dev/sdg", mountpoint: "{{ fluentd.data_dir }}", fstype: "ext4", volume_type: "gp3", volume_size: 2, encrypted: True, "delete_on_termination": true}
+          - {device_name: "/dev/sdf", mountpoint: "{{ fluentd.log_file | dirname }}", fstype: "ext4", volume_type: "gp3", volume_size: 10, encrypted: True, "delete_on_termination": true}
+          - {device_name: "/dev/sdg", mountpoint: "{{ fluentd.data_dir }}", fstype: "ext4", volume_type: "gp3", volume_size: 20, encrypted: True, "delete_on_termination": true}
         flavor: t3a.small
         version: "{{fluentd.version | regex_replace('\\.', '_') | default('')}}"
-        vms_by_az: { a: 1, b: 1, c: 0 }
+        vms_by_az: { a: 1, b: 1, c: 1 }
 
 _host_ssh_connection_cfg: { <<: *host_ssh_connection_cfg }

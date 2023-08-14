@@ -1,6 +1,6 @@
 ---
 
-redeploy_schemes_supported: ['_scheme_addnewvm_rmdisk_rollback']
+redeploy_schemes_supported: ['_scheme_addnewvm_rmdisk_rollback', '_scheme_addallnew_rmdisk_rollback']
 
 prometheus_node_exporter_install: no
 filebeat_install: no

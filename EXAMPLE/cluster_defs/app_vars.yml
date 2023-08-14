@@ -6,7 +6,7 @@ fluentd:
   user: fluentd
   group: fluentd
   data_dir: "/fluentd"
-  version: "1.16.1"
+  version: "1.16.2"
   conf_dir: "/etc/fluentd"
   pid_dir: "/var/run/fluentd"
   limit_nofile: 1048576                   # max size permitted by fs.nr_open defaults to 2^20 (1048576)
@@ -20,7 +20,7 @@ fluentd:
       fluent-plugin-node-exporter-metrics:
         version: "0.2.1"
       fluent-plugin-opensearch:
-        version: "1.1.0"
+        version: "1.1.3"
       fluent-plugin-cloudwatch-logs:
         version: "0.14.3"
       fluent-plugin-cloudwatch:
@@ -37,7 +37,7 @@ fluentd:
       fluent-plugin-cloudwatch:
         git:
           repo: "https://github.com/dseeley/fluent-plugin-cloudwatch.git"
-          version: "sts_role"
+          version: "develop"
 
   conffile:
     sources_single_worker:
@@ -91,8 +91,7 @@ loadbalancer:
   lb_ha_mgr: ""         # The load-balancing/HA solution. One of: keepalived_ipvs, awsnlb, gcp_dns_healthcheck
   keepalived:
     vip_cidr: ""        # MUST be present for loadbalancer.lb_ha_mgr="keepalived_ipvs"; will be filled automatically for aws/gcp
-  awsnlb_schemes: ['internal']       # An array of one or both of: ['internet-facing', 'internal']
-
+  awsnlb_schemes: []    # An array of one or both of: ['internet-facing', 'internal']
 
 
 # jemalloc - alternate memory manager that optimizes for fragmentation; prevents FluentD OOMs due to memory fragmentation under load - see https://docs.fluentd.org/installation/install-from-source#step-4-run

@@ -2,3 +2,4 @@
 
 loadbalancer:
   lb_ha_mgr: "awsnlb"
+  awsnlb_schemes: ['internal']       # An array of one or both of: ['internet-facing', 'internal']
