@@ -1,5 +1,7 @@
 ---
 
 - name: Run cloud-specific clean (if defined)
-  include: "{{ item }}"
-  with_first_found: [{ files: ["clean_{{cluster_vars.type}}.yml"], skip: true }]
+  include_tasks: "{{ item__include_tasks }}"
+  loop: "{{ query('first_found', params) }}"
+  loop_control: { loop_var: item__include_tasks }   #This mechanism to include_tasks only when the file exists, also creates a loop iterator 'item' that it sends to the included tasks.  If they also have loops, we get "The loop variable 'item' is already in use" warning.
+  vars: { params: { files: ["clean_{{cluster_vars.type}}.yml"], skip: true } }
