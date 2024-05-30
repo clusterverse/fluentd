@@ -2,11 +2,10 @@
 
 - name: fluentd-load-balancer-awsnlb | ec2_instance_info
   ec2_instance_info:
-    filters:
-      "tag:hosttype": "fluentd"
-      "instance-state-name": ["running"]
-    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
-    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+    filters: "{{ fluentd_cluster_filters | combine({'instance-state-name': ['running']}) }}"
     region: "{{cluster_vars.region}}"
   delegate_to: localhost
   run_once: true
@@ -18,8 +17,9 @@
 
 - name: fluentd-load-balancer-awsnlb | create elb_target_group
   elb_target_group:
-    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
-    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
     region: "{{cluster_vars.region}}"
     name: "{{cluster_name}}-{{item.1.port}}-{{'int' if item.0=='internal' else 'ext'}}"
     protocol: "{% if 'config' in item.1 and 'transport udp' in item.1.config %}UDP{% else %}TCP{% endif %}"
@@ -47,8 +47,9 @@
 
 - name: fluentd-load-balancer-awsnlb | Create an N/ELB and attach listeners
   elb_network_lb:
-    aws_access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
-    aws_secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+    access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
     region: "{{cluster_vars.region}}"
     name: "{{cluster_name}}-{{'int' if item.0=='internal' else 'ext'}}"
     subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
@@ -69,8 +70,9 @@
 
 - name: fluentd-load-balancer-awsnlb | Gather info for pre-existing Hosted Zones (public and/or private)
   route53_info:
-    aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
-    aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
     query: hosted_zone
   delegate_to: localhost
   register: r__route53_info__zones
@@ -81,8 +83,9 @@
 
 - name: fluentd-load-balancer-awsnlb | create CNAME(s)
   route53:
-    aws_access_key: "{{cluster_vars[buildenv].aws_access_key}}"
-    aws_secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    access_key: "{{cluster_vars[buildenv].aws_access_key}}"
+    secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
     state: present
     zone: "{{cluster_vars.dns_nameserver_zone}}"
     record: "{{loadbalancer.url}}"

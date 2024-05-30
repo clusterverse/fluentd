@@ -10,6 +10,9 @@ roles:
     version: master
 
 collections:
+  - name: dseeley.nested_playbook
+    source: https://galaxy.ansible.com
+
   - name: dseeley.ansible_vault_pipe
     source: https://galaxy.ansible.com
 

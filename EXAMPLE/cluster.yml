@@ -1,19 +1,13 @@
 ---
 
-- name: fluentd | dependency check
-  hosts: all:localhost
-  gather_facts: no
-  tasks:
-    - name: Ansible collection requirement (dseeley.tasks_serial needed to restart fluentd safely)
-      assert: { that: "'dseeley.tasks_serial' in galaxy_collections.keys()", fail_msg: "Please ensure the dseeley.tasks_serial collection is installed:  ansible-galaxy collection install dseeley.tasks_serial (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
-      vars:
-        galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query(\"*\") | combine }}"
-
 - name: clusterverse | Deploy the cluster
   hosts: localhost
-  gather_facts: no
+  gather_facts: false
   tasks:
     - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy role install --ignore-errors -fr requirements.yml", tags: ["always"] }
+
+    - assert: { that: "'dseeley.tasks_serial' in galaxy_collections.keys() and (galaxy_collections['dseeley.tasks_serial'].version is version('0.0.6', '>='))",  fail_msg: "Please ensure the dseeley.tasks_serial (>=0.0.6) collection is installed:  ansible-galaxy collection install dseeley.tasks_serial (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
+      vars: { galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query(\"*\") | combine }}" }
 
     - block:
         - { include_role: { name: "clusterverse/_dependencies", apply: {tags: ["always"]} }, tags: ["always"] }
@@ -23,12 +17,12 @@
 
     - { include_role: { name: "clusterverse/create", apply: { tags: ["clusterverse_create"]} }, tags: ["clusterverse_create"] }
     - { include_role: { name: "clusterverse/dynamic_inventory", apply: { tags: ["clusterverse_dynamic_inventory"]} }, tags: ["clusterverse_dynamic_inventory"] }
-    - { name: "clusterverse | Copy ansible_ssh_private_key_file", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file}} dest='id_rsa_ansible_ssh_private_key_file' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file is defined", no_log: yes, tags: ["always"] }
-    - { name: "clusterverse | Copy bastion sshkey", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.bastion.ssh_priv_key}} dest='id_rsa_bastion' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.bastion.ssh_priv_key is defined", no_log: yes, tags: ["always"] }
+    - { name: "clusterverse | Copy ansible_ssh_private_key_file", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file}} dest='id_rsa_ansible_ssh_private_key_file' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.host.ansible_ssh_private_key_file is defined", no_log: true, tags: ["always"] }
+    - { name: "clusterverse | Copy bastion sshkey", local_action: "copy content={{cluster_vars[buildenv].ssh_connection_cfg.bastion.ssh_priv_key}} dest='id_rsa_bastion' mode='0600'", when: "cluster_vars[buildenv].ssh_connection_cfg.bastion.ssh_priv_key is defined", no_log: true, tags: ["always"] }
 
 - name: clusterverse | Wait for SSH connections
   hosts: all
-  gather_facts: no
+  gather_facts: false
   tasks: [ {wait_for_connection: "", tags: ["always"] } ]
 
 - name: clusterverse | Configure the cluster
@@ -47,15 +41,18 @@
   hosts: all:localhost
   tasks:
     - assert: { that: "'dseeley.ansible_vault_pipe' in galaxy_collections.keys()", fail_msg: "Please ensure the dseeley.ansible_vault_pipe collection is installed:  ansible-galaxy collection install dseeley.ansible_vault_pipe (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
-      vars:
-        galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query(\"*\") | combine }}"
+      vars: { galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query(\"*\") | combine }}" }
 
-    - { include_role: { name: "fluentd/ssl_ownca", apply: { tags: ["opensearch_ssl_ownca"] } }, tags: ["opensearch_ssl_ownca"] }
+    - { include_role: { name: "fluentd/ssl_ownca", apply: { tags: ["fluentd_ssl_ownca"] } }, tags: ["fluentd_ssl_ownca"] }
 
-- name: fluentd | fluentd
+- name: fluentd | fluentd build
   hosts: fluentd
   tasks:
-    - { include_role: { name: "fluentd/build", apply: { tags: ["fluentd.manage"]} }, tags: ["fluentd.manage"] }
+    - include_role:
+        name: "fluentd/build"
+        apply: { tags: ["fluentd.manage"] }
+      tags: ["fluentd.manage"]
+      vars: { fluentd_cluster_filters: { "tag:cv__cluster_name": "{{cluster_name}}", "tag:cv__lifecycle_state": "current" } }
 ######
 
 

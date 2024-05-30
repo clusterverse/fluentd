@@ -16,11 +16,6 @@
         predeleterole: "fluentd/_redeploy_predelete"
 
 
-- name: Redeploy | get dynamic inventory for further post-redeploy steps
-  hosts: localhost
-  tasks:
-    - { include_role: { name: "clusterverse/dynamic_inventory", apply: { tags: ["clusterverse_dynamic_inventory"]} }, tags: ["clusterverse_dynamic_inventory"] }
-
 - name: Redeploy | fluentd-loadbalancer
   hosts: fluentd
   tasks:
