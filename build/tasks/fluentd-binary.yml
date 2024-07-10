@@ -34,12 +34,25 @@
       tempfile: { state: directory, suffix: gitBuildTMP }
       register: tmp_build_dir
 
+    - name: fluentd-binary | copy SSH key for git
+      become: yes
+      copy:
+        src: "{{ fluentd.plugins.source[item].git.ssh_key__file | default(omit) }}"
+        content: "{{ fluentd.plugins.source[item].git.ssh_key__text | default(omit) }}"
+        dest: "{{ tmp_build_dir.path }}/{{item}}__ssh_key"
+        mode: '0600'
+      register: copied_ssh_key
+      when: "fluentd.plugins.source[item].git.ssh_key__file is defined or fluentd.plugins.source[item].git.ssh_key__text is defined"
+      with_items: "{{ fluentd.plugins.source.keys() | list }}"
+
     - name: fluentd-binary | get fluentd plugin from git
       become: yes
       git:
         repo: "{{ fluentd.plugins.source[item].git.repo }}"
         version: "{{ fluentd.plugins.source[item].git.version | default(HEAD)}}"
         dest: "{{ tmp_build_dir.path }}/{{item}}"
+        accept_newhostkey: true
+        key_file: "{{ copied_ssh_key.results | json_query(\"[?item==`\" + item + \"`].dest | [0]\") | default(omit) }}"
       with_items: "{{ fluentd.plugins.source.keys() | list }}"
 
     - name: fluentd-binary | build and install fluentd plugin from git
@@ -49,4 +62,10 @@
         chdir: "{{ tmp_build_dir.path }}/{{item}}"
       with_items: "{{ fluentd.plugins.source.keys() | list }}"
       notify: restart fluentd
+
+    - name: fluentd-binary | remove temporary git build directory
+      become: yes
+      file:
+        path: "{{ tmp_build_dir.path }}"
+        state: absent
   when: "fluentd.plugins.source is defined and fluentd.plugins.source and fluentd.plugins.source | type_debug == 'dict'"
