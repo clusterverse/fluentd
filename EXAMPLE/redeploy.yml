@@ -25,3 +25,4 @@
       include_role:
         name: 'fluentd/build'
         tasks_from: fluentd-loadbalancer.yml
+      vars: { fluentd_cluster_filters: { "tag:cv__cluster_name": "{{cluster_name}}", "tag:cv__lifecycle_state": "current" } }

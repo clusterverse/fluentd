@@ -6,7 +6,7 @@
   tasks:
     - { name: "Get dependent roles via ansible-galaxy", local_action: "command ansible-galaxy role install --ignore-errors -fr requirements.yml", tags: ["always"] }
 
-    - assert: { that: "'dseeley.tasks_serial' in galaxy_collections.keys() and (galaxy_collections['dseeley.tasks_serial'].version is version('0.0.6', '>='))",  fail_msg: "Please ensure the dseeley.tasks_serial (>=0.0.6) collection is installed:  ansible-galaxy collection install dseeley.tasks_serial (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
+    - assert: { that: "'dseeley.tasks_serial' in galaxy_collections.keys() and (galaxy_collections['dseeley.tasks_serial'].version is version('0.0.7', '>='))",  fail_msg: "Please ensure the dseeley.tasks_serial (>=0.0.7) collection is installed:  ansible-galaxy collection install dseeley.tasks_serial (or ansible-galaxy collection install --ignore-errors -fr requirements.yml)" }
       vars: { galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query(\"*\") | combine }}" }
 
     - block:

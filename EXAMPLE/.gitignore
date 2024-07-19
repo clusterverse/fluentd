@@ -13,3 +13,4 @@ id_rsa*
 /_dynamic_inventory/
 /cluster_defs/**/*ssl*
 /test*.yml
+_docker_build
