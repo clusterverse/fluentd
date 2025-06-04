@@ -1,7 +1,7 @@
 ---
 
 - name: fluentd-static-config | Create pid, log and conf directories
-  become: yes
+  become: true
   file:
     path: "{{ item }}"
     state: directory
@@ -14,7 +14,7 @@
     - "{{ fluentd.log_file | dirname }}"
 
 - name: fluentd-static-config | Copy SSL CA to remote
-  become: yes
+  become: true
   copy:
     content: "{{ item.val }}"
     dest: "{{ item.path }}"
@@ -28,7 +28,7 @@
   notify: restart fluentd
 
 - name: fluentd-static-config | Copy fluentd daemon config
-  become: yes
+  become: true
   template:
     src: "fluentd.conf.j2"
     dest: "{{ fluentd.conf_dir }}/fluentd.conf"
@@ -38,7 +38,7 @@
   notify: restart fluentd
 
 - name: fluentd-static-config | Copy fluentd service config
-  become: yes
+  become: true
   template:
     src: "fluentd.service.j2"
     dest: /lib/systemd/system/fluentd.service
@@ -48,9 +48,9 @@
   notify: restart fluentd
 
 - name: fluentd-static-config | Configure daemon service
-  become: yes
+  become: true
   systemd:
     name: fluentd
     state: started
-    enabled: yes
-    daemon_reload: yes
+    enabled: true
+    daemon_reload: true

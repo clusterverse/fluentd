@@ -1,16 +1,13 @@
 ---
 
-redeploy_schemes_supported: ['_scheme_addnewvm_rmdisk_rollback', '_scheme_addallnew_rmdisk_rollback']
+redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback', '_scheme_addnewvm_rmdisk_rollback']
 
 app_name: "fluentd-{{lookup('pipe', 'whoami') | lower}}"      # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
-app_class: "observability"                              # The class of application (e.g. 'database', 'webserver'); becomes part of the fqdn
 
-cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster within the cloud environment
+cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster within the cloud environment; becomes part of the hostname
 
 cluster_vars:
-  type: "{{cloud_type}}"
-  region: "{{region}}"
   custom_tagslabels:
-    cv__cluster_name: "{{cluster_name}}"
+    cv__app_name: "{{app_name}}"
     cv__environment: "{{buildenv}}"
     cv__owner: "{{ lookup('env','USER') | lower }}"

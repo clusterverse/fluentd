@@ -8,7 +8,7 @@
     _tg_name: "{{cluster_name}}-{{item.1.port}}-{{'int' if item.0=='internal' else 'ext'}}"
   with_nested:
     - "{{ loadbalancer.awsnlb_schemes }}"
-    - "{{ fluentd.conffile.sources_multi_worker | json_query(\"[?contains(keys(@), `port`)]\") }}"
+    - "{{ fluentd.conffile.sources_multi_worker | selectattr('port', 'defined') | list }}"
   when: loadbalancer.lb_ha_mgr == "awsnlb"
 
 - name: fluentd | configure the host VM

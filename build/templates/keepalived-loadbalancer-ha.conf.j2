@@ -33,7 +33,7 @@ vrrp_instance VI_1 {
   notify_fault "/etc/keepalived/bypass_ipvs.sh add {{loadbalancer.keepalived.vip_cidr | ansible.utils.ipaddr('address')}}"
 }
 
-{% for source in fluentd.conffile.sources_multi_worker | json_query('[?contains(keys(@), `port`)] | sort_by(@, &port)') -%}
+{% for source in fluentd.conffile.sources_multi_worker | selectattr('port', 'defined') | sort(attribute='port') -%}
 virtual_server {{ loadbalancer.keepalived.vip_cidr | ansible.utils.ipaddr('address') }} {{ source.port }} {
   delay_loop 5
   lvs_sched rr

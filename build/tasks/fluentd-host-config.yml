@@ -1,25 +1,25 @@
 ---
 
 - name: fluentd-host-config | Create "{{fluentd.group}}" unix group
-  become: yes
+  become: true
   group:
     name: "{{fluentd.group}}"
 
 - name: fluentd-host-config | Add the "{{fluentd.group}}" user
-  become: yes
+  become: true
   user:
     name: "{{fluentd.user}}"
     groups: "{{fluentd.group}}"
-    system: yes
+    system: true
 
 - name: fluentd-host-config | Create "{{fluentd.data_dir}}" directory
-  become: yes
+  become: true
   file:
     path: "{{fluentd.data_dir}}"
     state: directory
 
 - name: fluentd-host-config | Change "{{fluentd.data_dir}}" ownership (must do after mount because ext4 cannot be mounted with uid/gid options)
-  become: yes
+  become: true
   file:
     path: "{{fluentd.data_dir}}"
     owner: "{{fluentd.user}}"
@@ -27,21 +27,21 @@
     mode: 0755
 
 - name: fluentd-host-config | sysctl - disable swappiness
-  become: yes
+  become: true
   sysctl:
     name: "vm.swappiness"
     value: 0
-    reload: yes
-    sysctl_set: yes
+    reload: true
+    sysctl_set: true
     state: present
 
 - name: fluentd-host-config | set network sysctls (https://docs.fluentd.org/installation/before-install#optimize-the-network-kernel-parameters)
-  become: yes
+  become: true
   sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
-    reload: yes
-    sysctl_set: yes
+    reload: true
+    sysctl_set: true
     state: present
   with_items:
     - {name: net.core.somaxconn,                  value: 1024}
@@ -56,7 +56,7 @@
     - {name: net.ipv4.ip_local_port_range,        value: 10240 65535}
 
 - name: fluentd-host-config | Add or modify limits for fluentd and wildcard domains
-  become: yes
+  become: true
   pam_limits:
     domain: "{{item.domain}}"
     limit_type: "{{item.limit_type}}"
@@ -71,14 +71,14 @@
     - { domain: "{{fluentd.user}}", limit_type: '-', limit_item: 'memlock', value: unlimited }
 
 - name: fluentd-host-config | enforce PAM limits
-  become: yes
+  become: true
   lineinfile:
     path: /etc/pam.d/common-session
     line: 'session required pam_limits.so'
     insertafter: EOF
 
 #- name: fluentd-host-config | set cap_dac_read_search+eip (NOTE - only for the cpufreq collector in fluent-plugin-node-exporter-metrics)
-#  become: yes
+#  become: true
 #  community.general.capabilities:
 #    path: /usr/bin/ruby3.0
 #    capability: cap_dac_read_search=+eip
