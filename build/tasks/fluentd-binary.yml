@@ -1,41 +1,41 @@
 ---
 
 - name: fluentd-binary | Install required packages and libraries
-  become: yes
+  become: true
   apt:
     name: ['cmake', 'libcap-ng-dev', '{{ruby_version}}', '{{rubydev_version}}', 'build-essential', '{{ libjemalloc_version }}']
-    update_cache: yes
+    update_cache: true
 
 - name: fluentd-binary | Install fluentd gem
-  become: yes
+  become: true
   community.general.gem:
     name: fluentd
     state: present
     version: "{{ fluentd.version }}"
-    norc: yes
-    user_install: no
+    norc: true
+    user_install: false
   notify: restart fluentd
 
 - name: fluentd-binary | Install fluentd plugin from rubygems
-  become: yes
+  become: true
   community.general.gem:
     name: "{{ item }}"
     state: present
     version: "{{ fluentd.plugins.rubygems[item].version }}"
-    norc: yes
-    user_install: no
+    norc: true
+    user_install: false
   with_items: "{{ fluentd.plugins.rubygems.keys() | list }}"
   when: "fluentd.plugins.rubygems is defined and fluentd.plugins.rubygems and fluentd.plugins.rubygems | type_debug == 'dict'"
   notify: restart fluentd
 
 - block:
     - name: fluentd-binary | create temporary git build directory
-      become: yes
+      become: true
       tempfile: { state: directory, suffix: gitBuildTMP }
       register: tmp_build_dir
 
     - name: fluentd-binary | copy SSH key for git
-      become: yes
+      become: true
       copy:
         src: "{{ fluentd.plugins.source[item].git.ssh_key__file | default(omit) }}"
         content: "{{ fluentd.plugins.source[item].git.ssh_key__text | default(omit) }}"
@@ -46,7 +46,7 @@
       with_items: "{{ fluentd.plugins.source.keys() | list }}"
 
     - name: fluentd-binary | get fluentd plugin from git
-      become: yes
+      become: true
       git:
         repo: "{{ fluentd.plugins.source[item].git.repo }}"
         version: "{{ fluentd.plugins.source[item].git.version | default(HEAD)}}"
@@ -56,7 +56,7 @@
       with_items: "{{ fluentd.plugins.source.keys() | list }}"
 
     - name: fluentd-binary | build and install fluentd plugin from git
-      become: yes
+      become: true
       shell: "gem uninstall {{item}}; gem build {{item}}.gemspec; sudo gem install {{item}}-*.gem"
       args:
         chdir: "{{ tmp_build_dir.path }}/{{item}}"
@@ -64,8 +64,8 @@
       notify: restart fluentd
 
     - name: fluentd-binary | remove temporary git build directory
-      become: yes
+      become: true
       file:
         path: "{{ tmp_build_dir.path }}"
         state: absent
-  when: "fluentd.plugins.source is defined and fluentd.plugins.source and fluentd.plugins.source | type_debug == 'dict'"
+  when: "fluentd.plugins.source is truthy and fluentd.plugins.source | type_debug == 'dict'"

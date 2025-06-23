@@ -5,11 +5,11 @@
 
 - block:
     - name: fluentd/redeploy_predelete | Stop fluentd service
-      become: yes
+      become: true
       service:
         name: fluentd
         state: stopped
       delegate_to: "{{ hosts_to_remove[0].name }}"
 
     #TODO: Remove from load balancer
-  when: hosts_to_remove | length
+  when: hosts_to_remove | length > 0

@@ -51,7 +51,7 @@
             type: "CNAME"
             private_zone: "{{ item.Config.PrivateZone }}"
           register: r__route53_cname
-          ignore_errors: yes
+          ignore_errors: true
           with_items: "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
 
         - name: clean_aws | debug r__route53_cname
@@ -70,5 +70,5 @@
             value: ["{{ item.set.value }}"]
             private_zone: "{{ item.item.Config.PrivateZone }}"
           with_items: "{{ r__route53_cname.results }}"
-          when: item.failed == false and item.resource_record_sets|length     # Note: when set is empty, it returns an empty list, rather than an empty dict as it should
+          when: item.failed == false and item.resource_record_sets|length > 0     # Note: when set is empty, it returns an empty list, rather than an empty dict as it should
       when: cluster_vars.dns_server == "route53"
