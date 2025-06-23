@@ -68,4 +68,4 @@
       file:
         path: "{{ tmp_build_dir.path }}"
         state: absent
-  when: "fluentd.plugins.source is defined and fluentd.plugins.source and fluentd.plugins.source | type_debug == 'dict'"
+  when: "fluentd.plugins.source is truthy and fluentd.plugins.source | type_debug == 'dict'"

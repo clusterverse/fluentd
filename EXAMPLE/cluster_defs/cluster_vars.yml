@@ -8,6 +8,5 @@ cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster
 
 cluster_vars:
   custom_tagslabels:
-    cv__app_name: "{{app_name}}"
     cv__environment: "{{buildenv}}"
     cv__owner: "{{ lookup('env','USER') | lower }}"
