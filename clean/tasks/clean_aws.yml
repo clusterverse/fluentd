@@ -3,8 +3,8 @@
 - block:
     - name: clean_aws | Get the ELB info
       community.aws.elb_application_lb_info:
-        access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
-        secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        access_key: "{{ cluster_vars[buildenv].aws_access_key | default(omit) }}"
+        secret_key: "{{ cluster_vars[buildenv].aws_secret_key | default(omit) }}"
         session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
         region: "{{cluster_vars.region}}"
       register: r__elb_application_lb_info
@@ -13,8 +13,8 @@
 
     - name: clean_aws | Delete the N/ELB
       elb_network_lb:
-        access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
-        secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        access_key: "{{ cluster_vars[buildenv].aws_access_key | default(omit) }}"
+        secret_key: "{{ cluster_vars[buildenv].aws_secret_key | default(omit) }}"
         session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
         region: "{{cluster_vars.region}}"
         name: "{{ item }}"
@@ -23,8 +23,8 @@
 
     - name: clean_aws | Delete the elb_target_groups
       elb_target_group:
-        access_key: "{{ cluster_vars[buildenv].aws_access_key }}"
-        secret_key: "{{ cluster_vars[buildenv].aws_secret_key }}"
+        access_key: "{{ cluster_vars[buildenv].aws_access_key | default(omit) }}"
+        secret_key: "{{ cluster_vars[buildenv].aws_secret_key | default(omit) }}"
         session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
         region: "{{cluster_vars.region}}"
         name: "{{item}}"
@@ -34,16 +34,16 @@
     - block:
         - name: clean_aws | Gather info for pre-existing Hosted Zones (public and/or private)
           route53_info:
-            access_key: "{{cluster_vars[buildenv].aws_access_key}}"
-            secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+            secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
             session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
             query: hosted_zone
           register: r__route53_info__zones
 
         - name: clean_aws | Get CNAME records
           route53:
-            access_key: "{{cluster_vars[buildenv].aws_access_key}}"
-            secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+            secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
             session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
             state: "get"
             zone: "{{cluster_vars.dns_nameserver_zone}}"
@@ -59,8 +59,8 @@
 
         - name: clean_aws | Delete CNAME records
           route53:
-            access_key: "{{cluster_vars[buildenv].aws_access_key}}"
-            secret_key: "{{cluster_vars[buildenv].aws_secret_key}}"
+            access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+            secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
             session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
             state: "absent"
             zone: "{{ item.set.zone }}"
