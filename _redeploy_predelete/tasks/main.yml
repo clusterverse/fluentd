@@ -9,7 +9,16 @@
       service:
         name: fluentd
         state: stopped
-      delegate_to: "{{ hosts_to_remove[0].name }}"
+      delegate_to: "{{ item.name }}"
+      with_items: "{{ hosts_to_remove }}"
 
-    #TODO: Remove from load balancer
+    - name: fluentd/redeploy_predelete | reapply loadbalancer config, excluding hosts_to_remove
+      include_role:
+        name: 'fluentd/build'
+        tasks_from: fluentd-loadbalancer.yml
+      vars:
+        fluentd_cluster_filters:
+          "tag:cv__cluster_name": "{{cluster_name}}"
+          "tag:Name": "{{ groups['all'] | reject('in', hosts_to_remove | map(attribute='name') | list) | list }}"
+      when: groups['fluentd'] | length > 1
   when: hosts_to_remove | length > 0

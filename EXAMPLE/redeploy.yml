@@ -14,15 +14,3 @@
       vars:
         mainclusteryml: "cluster.yml"
         predeleterole: "fluentd/_redeploy_predelete"
-
-
-- name: Redeploy | fluentd-loadbalancer
-  hosts: fluentd
-  tasks:
-    - { include_role: { name: "clusterverse/_dependencies", apply: { tags: ["always"] } }, tags: ["always"] }   # Needed for cluster_defs variables
-
-    - name: fluentd | install/configure load balancer
-      include_role:
-        name: 'fluentd/build'
-        tasks_from: fluentd-loadbalancer.yml
-      vars: { fluentd_cluster_filters: { "tag:cv__cluster_name": "{{cluster_name}}", "tag:cv__lifecycle_state": "current" } }

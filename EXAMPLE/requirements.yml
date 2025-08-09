@@ -10,9 +10,6 @@ roles:
     version: master
 
 collections:
-  - name: google.cloud
-    source: https://galaxy.ansible.com
-
   - name: dseeley.nested_playbook
     source: https://galaxy.ansible.com
 

@@ -1,12 +1,17 @@
 ---
 
 redeploy_schemes_supported: ['_scheme_addallnew_rmdisk_rollback', '_scheme_addnewvm_rmdisk_rollback']
+redeploy_scheme: "_scheme_addallnew_rmdisk_rollback"
+canary_tidy_on_success: true
+canary: none
 
-app_name: "fluentd-{{lookup('pipe', 'whoami') | lower}}"      # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
+pkgupdate: "on_create"                                  # "always" or "on_create".  Leave empty to prevent updating packages.
+omit_singleton_hosttype_from_hostname: true             # Don't need the hosttype in the hostname (e.g. 'mongo-dev-mongod-a0' vs 'mongo-dev-a0')
 
-cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster within the cloud environment; becomes part of the hostname
+app_name: "fluentd-{{lookup('pipe', 'whoami')[:2] + lookup('pipe', 'whoami')[-1:] | lower}}"      # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
+cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster within the cloud environment
 
 cluster_vars:
   custom_tagslabels:
-    cv__environment: "{{buildenv}}"
-    cv__owner: "{{ lookup('env','USER') | lower }}"
+    environment: "{{buildenv}}"
+    owner: "{{ lookup('pipe', 'whoami') | lower }}"

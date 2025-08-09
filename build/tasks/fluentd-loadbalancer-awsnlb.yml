@@ -16,7 +16,7 @@
   run_once: true
 
 - name: fluentd-load-balancer-awsnlb | create elb_target_group
-  elb_target_group:
+  community.aws.elb_target_group:
     access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
     secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
     session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
@@ -25,7 +25,7 @@
     protocol: "{% if 'config' in item.1 and 'transport udp' in item.1.config %}UDP{% else %}TCP{% endif %}"
     port: "{{ item.1.port }}"
     vpc_id: "{{ r__ec2_instance_info.instances | json_query(\"[].vpc_id | [0]\") }}"
-#    deregistration_connection_termination: "{{ false if 'config' not in item.1 or 'transport udp' not in item.1.config else true }}"
+    deregistration_connection_termination: "{{ false if 'config' not in item.1 or 'transport udp' not in item.1.config else true }}"
     deregistration_delay_timeout: 30
     health_check_port: "{{ item.1.port if 'config' not in item.1 or 'transport udp' not in item.1.config else 22 }}"
     health_check_protocol: "TCP"
@@ -46,22 +46,22 @@
   run_once: true
 
 - name: fluentd-load-balancer-awsnlb | Create an N/ELB and attach listeners
-  elb_network_lb:
+  community.aws.elb_network_lb:
     access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
     secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
     session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
     region: "{{cluster_vars.region}}"
-    name: "{{cluster_name}}-{{'int' if item.key=='internal' else 'ext'}}"
+    name: "{{cluster_name}}-{{'int' if item[0].key=='internal' else 'ext'}}"
     subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
     cross_zone_load_balancing: true
-    scheme: "{{ item.key }}"
-    listeners: "{{ item.value | json_query(\"[].{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
+    scheme: "{{ item[0].key }}"
+    listeners: "{{ item | json_query(\"[].value.{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
     state: present
     wait: true
   delegate_to: localhost
   run_once: true
   register: r__elb_network_lb
-  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') }}"
+  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') | dict_agg('key') | json_query('*') }}"
 
 - name: fluentd-load-balancer-awsnlb | r__elb_network_lb
   debug: msg="{{r__elb_network_lb}}"
@@ -69,7 +69,7 @@
 
 
 - name: fluentd-load-balancer-awsnlb | Gather info for pre-existing Hosted Zones (public and/or private)
-  route53_info:
+  amazon.aws.route53_info:
     access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
     secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
     session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
@@ -82,7 +82,7 @@
   run_once: true
 
 - name: fluentd-load-balancer-awsnlb | create CNAME(s)
-  route53:
+  amazon.aws.route53:
     access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
     secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
     session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"

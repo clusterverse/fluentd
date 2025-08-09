@@ -5,8 +5,8 @@ playbook_ca_yaml: "{{playbook_dir}}/cluster_defs/ssl_ca.yml"
 fluentd:
   user: fluentd
   group: fluentd
-  data_dir: "/fluentd"
-  version: "1.18.0"
+  data_dir: &fluentd_data_dir "/fluentd"
+  version: "1.19.0"
   conf_dir: "/etc/fluentd"
   pid_dir: "/var/run/fluentd"
   limit_nofile: 1048576                   # max size permitted by fs.nr_open defaults to 2^20 (1048576)
@@ -34,14 +34,6 @@ fluentd:
       fluent-plugin-s3:
         version: "1.8.3"
     source:
-      fluent-plugin-cloudwatch:
-        git:
-          repo: "https://github.com/preqin/fluent-plugin-cloudwatch.git"
-          version: "master"
-      fluent-plugin-http-status:
-        git:
-          repo: "https://github.com/preqin/fluent-plugin-http-status.git"
-          version: "master"
 #      fluent-plugin-example_private:
 #        git:
 #          repo: "https://github.com/example_private/example_private_repo.git"
@@ -89,16 +81,19 @@ fluentd:
          emit_unmatched_lines true
          <transport udp>
          </transport>
-#    filters:
-#    labels:
+    filters:
+    labels:
     matches:
       - config: |-
           <match node_metrics>
             @type stdout
           </match>
 
+_fluentd_data_dir: *fluentd_data_dir
+
+
 loadbalancer:
-  url: "{% if cluster_vars.dns_server is defined and cluster_vars.dns_server != '' %}{{cluster_name}}.{{cluster_vars.dns_nameserver_zone}}{% endif %}"
+  url: "{% if cluster_vars.dns_server is truthy %}{{cluster_name}}.{{cluster_vars.dns_nameserver_zone}}{% endif %}"
   secure_port: 443
   lb_ha_mgr: ""         # The load-balancing/HA solution. One of: keepalived_ipvs, awsnlb, gcp_dns_healthcheck
   keepalived:

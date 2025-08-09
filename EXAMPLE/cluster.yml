@@ -50,9 +50,9 @@
   tasks:
     - include_role:
         name: "fluentd/build"
-        apply: { tags: ["fluentd.manage"] }
-      tags: ["fluentd.manage"]
-      vars: { fluentd_cluster_filters: { "tag:cv__cluster_name": "{{cluster_name}}", "tag:cv__lifecycle_state": "current" } }
+        apply: { tags: ["fluentd_build"] }
+      tags: ["fluentd_build"]
+      vars: { fluentd_cluster_filters: { "tag:cv__cluster_name": "{{cluster_name}}" } }
 ######
 
 
