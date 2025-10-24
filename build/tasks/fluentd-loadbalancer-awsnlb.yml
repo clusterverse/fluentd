@@ -51,17 +51,17 @@
     secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
     session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
     region: "{{cluster_vars.region}}"
-    name: "{{cluster_name}}-{{'int' if item[0].key=='internal' else 'ext'}}"
+    name: "{{cluster_name}}-{{'int' if item[0]=='internal' else 'ext'}}"
     subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
     cross_zone_load_balancing: true
-    scheme: "{{ item[0].key }}"
-    listeners: "{{ item | json_query(\"[].value.{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
+    scheme: "{{ item[0] }}"
+    listeners: "{{ item[1] | json_query(\"[].value.{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
     state: present
     wait: true
   delegate_to: localhost
   run_once: true
   register: r__elb_network_lb
-  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') | dict_agg('key') | json_query('*') }}"
+  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') | groupby('key')  }}"
 
 - name: fluentd-load-balancer-awsnlb | r__elb_network_lb
   debug: msg="{{r__elb_network_lb}}"
