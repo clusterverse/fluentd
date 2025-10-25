@@ -2,7 +2,7 @@
 
 - name: fluentd | assert that cluster_name isn't too long for the target group name
   assert:
-    that: "{{_tg_name | length <= 32}}"
+    that: _tg_name | length <= 32
     fail_msg: "Target group name ('{{_tg_name}}') must be <= 32 characters long"
   vars:
     _tg_name: "{{cluster_name}}-{{item.1.port}}-{{'int' if item.0=='internal' else 'ext'}}"

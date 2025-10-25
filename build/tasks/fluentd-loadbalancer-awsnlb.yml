@@ -61,7 +61,7 @@
   delegate_to: localhost
   run_once: true
   register: r__elb_network_lb
-  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') | groupby('key')  }}"
+  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') | groupby('key') | map('list') }}"   # groupby returns a list of 'namedtuple' which we explicitly converted to a list (using map('list')) to avoid a warning. See https://forum.ansible.com/t/type-grouptuple-is-unsupported-in-variable-storage/44513/2
 
 - name: fluentd-load-balancer-awsnlb | r__elb_network_lb
   debug: msg="{{r__elb_network_lb}}"
