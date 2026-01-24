@@ -3,7 +3,7 @@
 - name: fluentd-binary | Install required packages and libraries
   become: true
   apt:
-    name: ['cmake', 'libcap-ng-dev', '{{ruby_version}}', '{{rubydev_version}}', 'build-essential', '{{ libjemalloc_version }}']
+    name: ['cmake', 'libcap-ng-dev', 'pkg-config', '{{ruby_version}}', '{{rubydev_version}}', 'build-essential', '{{ libjemalloc_version }}']
     update_cache: true
 
 - name: fluentd-binary | Install fluentd gem
