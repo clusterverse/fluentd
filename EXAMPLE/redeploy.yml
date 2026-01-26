@@ -1,6 +1,6 @@
 ---
 
-- name: Redeploy
+- name: redeploy | Redeploy the cluster
   hosts: localhost
   tasks:
     - assert: { that: "['clusterverse.clusterverse', 'dseeley.tasks_serial', 'dseeley.ansible_vault_pipe'] is subset(galaxy_collections.keys())", success_msg: "clusterverse collections dependencies are met", fail_msg: "Please ensure the clusterverse collections are installed: ansible-galaxy install -r requirements.yml)" }
