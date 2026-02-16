@@ -1,6 +1,6 @@
 ---
 
-- name: clusterverse | Deploy the cluster
+- name: clusterverse | Deploy (and/or delete) the cluster VMs
   hosts: localhost
   gather_facts: false
   tasks:
@@ -17,7 +17,7 @@
     - { include_role: { name: "clusterverse.clusterverse.create", apply: { tags: ["clusterverse_create"]} }, tags: ["clusterverse_create"] }
     - { include_role: { name: "clusterverse.clusterverse.dynamic_inventory", apply: { tags: ["always"]} }, tags: ["always"] }
 
-- name: clusterverse | Configure the cluster
+- name: clusterverse | Configure the cluster VM OSs (excluding not-being-redeployed hosts)
   hosts: all:!not_target_hosts
   gather_facts: false
   tasks:
@@ -25,8 +25,8 @@
     - { include_role: { name: "clusterverse.clusterverse.config", apply: { tags: ["clusterverse_config"]} }, tags: ["clusterverse_config"] }
 
 
-###### fluentd roles
-- name: fluentd | load clusterverse deps if not included already
+###### fluentd roles ######
+- name: fluentd | load clusterverse dependencies (if excluded due to --skips-tags)
   hosts: all:!not_target_hosts
   tasks:
     - { include_role: { name: "clusterverse.clusterverse._dependencies", apply: { tags: ["always"] } }, tags: ["always"], when: "'clusterverse_config' not in ansible_run_tags" }      # If we --skip-tags=clusterverse_config, this will ensure the variables from /cluster_defs are loaded.
@@ -47,6 +47,8 @@
 ######
 
 
-- name: clusterverse | Perform cluster readiness operations
+- name: clusterverse | Perform cluster readiness operations. 'post_deploy.yml' is run after every cluster deploy; 'post_redeploy.yml' is run after redeploy (or cluster deploy if this is not a redeploy)
   hosts: localhost
-  tasks: [ { include_role: { name: "clusterverse.clusterverse.readiness", apply: { tags: ["clusterverse_readiness"]} }, tags: ["clusterverse_readiness"] } ]
+  tasks:
+    - { include_role: { name: "clusterverse.clusterverse.readiness", tasks_from: "post_deploy.yml" } }
+    - { include_role: { name: "clusterverse.clusterverse.readiness", tasks_from: "post_redeploy.yml", apply: { tags: ["clusterverse_readiness"]} }, tags: ["clusterverse_readiness"] }
