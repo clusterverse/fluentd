@@ -23,11 +23,3 @@
       {% endif %}
       {% endfor %}
   throttle: 1
-
-
-- name: restart keepalived
-  become: true
-  service:
-    name: keepalived
-    enabled: true
-    state: restarted
