@@ -5,11 +5,13 @@
     access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
     secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
     session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-    filters: "{{ fluentd_cluster_filters | combine({'instance-state-name': ['running']}) }}"
+    filters: "{{ {'instance-state-name': ['running'], 'tag:cv__cluster_name': cluster_name } | combine(_tag_name_filter) }}"
     region: "{{cluster_vars.region}}"
   delegate_to: localhost
   run_once: true
   register: r__ec2_instance_info
+  vars:
+    _tag_name_filter: "{{ {'tag:Name': fluentd_loadbalancer_hosts} if fluentd_loadbalancer_hosts is defined else {} }}"
 
 - name: fluentd-load-balancer-awsnlb | r__ec2_instance_info
   debug: msg="{{r__ec2_instance_info}}"
