@@ -16,7 +16,7 @@
     user_install: false
   notify: restart fluentd
 
-- name: fluentd-binary | Install fluentd plugin from rubygems
+- name: fluentd-binary | Install fluentd plugins from rubygems
   become: true
   community.general.gem:
     name: "{{ item }}"
@@ -24,6 +24,8 @@
     version: "{{ fluentd.plugins.rubygems[item].version }}"
     norc: true
     user_install: false
+  environment:
+    CMAKE_POLICY_VERSION_MINIMUM: 3.5
   with_items: "{{ fluentd.plugins.rubygems.keys() | list }}"
   when: "fluentd.plugins.rubygems is defined and fluentd.plugins.rubygems and fluentd.plugins.rubygems | type_debug == 'dict'"
   notify: restart fluentd
@@ -60,6 +62,8 @@
       shell: "gem uninstall {{item}}; gem build {{item}}.gemspec; sudo gem install {{item}}-*.gem"
       args:
         chdir: "{{ tmp_build_dir.path }}/{{item}}"
+      environment:
+        CMAKE_POLICY_VERSION_MINIMUM: 3.5
       with_items: "{{ fluentd.plugins.source.keys() | list }}"
       notify: restart fluentd
 

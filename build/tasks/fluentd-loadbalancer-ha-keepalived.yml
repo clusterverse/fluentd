@@ -59,7 +59,7 @@
   vars:
     keepalived_real_servers: "{{ fluentd_loadbalancer_hosts | default(ansible_play_batch) | map('extract', hostvars, ['ansible_facts', 'default_ipv4', 'address']) | sort }}"
     keepalived_peers: "{{ fluentd_loadbalancer_hosts | default(ansible_play_batch) | difference([item]) | map('extract', hostvars, ['ansible_facts', 'default_ipv4', 'address']) | sort }}"
-    item_default_ipv4: "{{ hostvars[item]['ansible_default_ipv4'] }}"
+    item_default_ipv4: "{{ hostvars[item]['ansible_facts']['default_ipv4'] }}"
   delegate_to: "{{ item }}"
   with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
 

@@ -26,5 +26,5 @@ Application configuration is stored in `cluster_defs/**/app_vars.yml` files.
 
 ### Invocation via Docker
 Can also be run within the included Docker container (e.g. for CI/CD)
-+ `docker build -t ansibuild .`
-+ `docker run --rm --name ansibuilder_fluentd -e VAULT_PASSWORD_BUILDENV=$VAULT_PASSWORD ansibuild ansible-playbook cluster.yml -e cloud_type=aws -e region=eu-west-1 -e buildenv=dev -vvv`
++ `docker build -t ansibuild -f Dockerfile_nonroot .`
++ `docker run --rm --name ansibuilder_fluentd -e VAULT_PASSWORD_BUILDENV=$VAULT_PASSWORD ansibuild ansible-playbook -e cloud_type=aws -e region=eu-west-1 -e buildenv=dev deploy.yml -vvv`

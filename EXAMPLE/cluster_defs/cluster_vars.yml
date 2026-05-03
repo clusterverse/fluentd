@@ -9,7 +9,7 @@ update_os: true                                         # A variable passed to t
 #omit_singleton_hosttype_from_hostname: true             # Don't need the hosttype in the hostname (e.g. 'mongo-dev-mongod-a0' vs 'mongo-dev-a0')
 
 app_name: "fluentd-{{lookup('pipe', 'whoami')[:2] + lookup('pipe', 'whoami')[-1:] | lower}}"      # The name of the application cluster (e.g. 'couchbase', 'nginx'); becomes part of cluster_name.  Provided is a default to ensure no accidental overwriting.
-cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster within the cloud environment
+cluster_name: "{{app_name}}-{{buildenv}}"               # Identifies the cluster within the cloud environment; becomes part of the hostname
 
 cluster_vars:
   custom_tagslabels:
