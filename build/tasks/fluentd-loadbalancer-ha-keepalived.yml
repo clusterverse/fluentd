@@ -1,21 +1,21 @@
 ---
 
-# NOTE: this is called from both the build/tasks/main.yml (with hosts: fluent) and _redeploy_predelete/tasks/main.yml (with hosts: localhost), so we need to use delegate_to for both
+# IMPORTANT NOTE: this is called from both the build/tasks/main.yml (with hosts: fluent) and _redeploy_predelete/tasks/main.yml (with hosts: localhost), so we need to use delegate_to to cater for both
 
-- name: fluentd-loadbalancer-ha-keepalived | fluentd_loadbalancer_hosts
+- name: fluentd-loadbalancer-ha-keepalived | debug fluentd_loadbalancer_hosts
   debug: msg="{{fluentd_loadbalancer_hosts | default([])}}"
 
-- name: fluentd-loadbalancer-ha-keepalived | ansible_play_batch
+- name: fluentd-loadbalancer-ha-keepalived | debug ansible_play_batch
   debug: msg="{{ansible_play_batch}}"
 
 - name: fluentd-loadbalancer-ha-keepalived | get default_ipv4 facts when fluentd_loadbalancer_hosts is defined (i.e. a redeploy, via localhost, so no gather_facts have happened)
-  ansible.builtin.setup: { gather_subset: ["default_ipv4"] }
+  ansible.builtin.setup: { gather_subset: ["default_ipv4", "os_family"] }
   delegate_to: "{{ item }}"
   delegate_facts: true
   with_items: "{{fluentd_loadbalancer_hosts | default([])}}"
   when: fluentd_loadbalancer_hosts is defined and fluentd_loadbalancer_hosts|length > 0
 
-- name: fluentd-loadbalancer-ha-keepalived | keepalived_real_servers,keepalived_peers
+- name: fluentd-loadbalancer-ha-keepalived | debug keepalived_real_servers, keepalived_peers
   debug:
     msg:
       - "{{ item }}"
@@ -42,14 +42,51 @@
       - {name: net.ipv4.ip_nonlocal_bind,  value: 1}
       - {name: net.ipv4.conf.all.accept_local, value: 1}
 
-- name: fluentd-loadbalancer-ha-keepalived | Install keepalived package
+- name: fluentd-loadbalancer-ha-keepalived | Install keepalived package (debian)
   become: true
-  apt:
+  ansible.builtin.apt:
     update_cache: true
     name: ['keepalived']
     state: present
   delegate_to: "{{ item }}"
   with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
+  when: hostvars[item]['ansible_facts']['os_family'] == 'Debian'
+
+- name: fluentd-loadbalancer-ha-keepalived | Install keepalived package (redhat)
+  become: true
+  ansible.builtin.dnf:
+    name: ['keepalived']
+  delegate_to: "{{ item }}"
+  with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
+  when: hostvars[item]['ansible_facts']['os_family'] == 'RedHat'
+
+- name: fluentd-loadbalancer-ha-keepalived | copy keepalived bypass_ipvs.sh
+  become: true
+  template:
+    src: keepalived-bypass-ipvs.sh.j2
+    dest: /etc/keepalived/keepalived-bypass-ipvs.sh
+    mode: 0755
+  delegate_to: "{{ item }}"
+  with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
+
+- name: fluentd-loadbalancer-ha-keepalived | Create /run/keepalived directory, so keepalived can create the FIFO.  Created via tmpfiles.d -  can't use the 'ansible.builtin.file' module because /run is a tmpfs-backed path, which is wiped on reboot (so a reboot would mean no fifo for keepalived)
+  become: true
+  block:
+    - name: apiserver-lb-ha-keepalived | Create keepalived tmpfiles.d config
+      copy:
+        dest: /etc/tmpfiles.d/keepalived.conf
+        content: |
+          d /run/keepalived 0755 root root -
+        owner: root
+        group: root
+        mode: '0644'
+      delegate_to: "{{ item }}"
+      with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
+
+    - name: apiserver-lb-ha-keepalived | Apply tmpfiles.d immediately
+      command: systemd-tmpfiles --create /etc/tmpfiles.d/keepalived.conf
+      delegate_to: "{{ item }}"
+      with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
 
 - name: fluentd-loadbalancer-ha-keepalived | Configure keepalived
   become: true
@@ -63,7 +100,7 @@
   delegate_to: "{{ item }}"
   with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
 
-- name: fluentd-loadbalancer-ha-keepalived | Configure keepalived logging
+- name: fluentd-loadbalancer-ha-keepalived | Configure keepalived logging (debian)
   become: true
   lineinfile:
     dest: "/etc/default/keepalived"
@@ -72,13 +109,18 @@
     backrefs: true
   delegate_to: "{{ item }}"
   with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
+  when: ansible_facts['os_family'] == 'Debian'
 
-- name: fluentd-loadbalancer-ha-keepalived | copy keepalived bypass_ipvs.sh
+- name: fluentd-loadbalancer-ha-keepalived | Configure keepalived logging (redhat)
   become: true
-  copy: src=keepalived_bypass_ipvs.sh dest=/etc/keepalived/bypass_ipvs.sh owner=root group=root mode=0755
+  lineinfile:
+    dest: "/etc/sysconfig/keepalived"
+    regexp: '^KEEPALIVED_OPTIONS="(.*")'
+    line: 'KEEPALIVED_OPTIONS="--log-detail \1'
+    backrefs: true
   delegate_to: "{{ item }}"
   with_items: "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"
-
+  when: ansible_facts['os_family'] == 'RedHat'
 
 - name: fluentd-loadbalancer-ha-keepalived | reload keepalived config
   become: true
