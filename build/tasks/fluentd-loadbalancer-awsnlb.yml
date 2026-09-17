@@ -1,110 +1,169 @@
 ---
 
-- name: fluentd-load-balancer-awsnlb | ec2_instance_info
-  ec2_instance_info:
-    access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
-    secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
-    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-    filters: "{{ {'instance-state-name': ['running'], 'tag:cv__cluster_name': cluster_name } | combine(_tag_name_filter) }}"
-    region: "{{cluster_vars.region}}"
-  delegate_to: localhost
-  run_once: true
-  register: r__ec2_instance_info
+- name: fluentd-load-balancer-awsnlb | Create regional NLBs and DNS
   vars:
-    _tag_name_filter: "{{ {'tag:Name': fluentd_loadbalancer_hosts} if fluentd_loadbalancer_hosts is defined else {} }}"
+    _aws_fluentd_regions: "{{ cluster_vars[buildenv].hosttype_vars.fluentd.region_vars.keys() | list }}"
+    _fluentd_ports: "{{ fluentd.conffile.sources_multi_worker | selectattr('port', 'defined') | list }}"
+  block:
+    - name: fluentd-load-balancer-awsnlb | ec2_instance_info
+      amazon.aws.ec2_instance_info:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        filters: "{{ {'instance-state-name': ['running'], 'tag:cv__cluster_name': cluster_name, 'tag:cv__hosttype': 'fluentd'} | combine(_tag_name_filter) }}"
+        region: "{{ item }}"
+      loop: "{{ _aws_fluentd_regions }}"
+      loop_control: { label: "{{ item }}" }
+      delegate_to: localhost
+      run_once: true
+      register: r__ec2_instance_info
+      vars:
+        _tag_name_filter: "{{ {'tag:Name': fluentd_loadbalancer_hosts} if fluentd_loadbalancer_hosts is defined else {} }}"
 
-- name: fluentd-load-balancer-awsnlb | r__ec2_instance_info
-  debug: msg="{{r__ec2_instance_info}}"
-  run_once: true
+    - name: fluentd-load-balancer-awsnlb | r__ec2_instance_info
+      debug: msg="{{r__ec2_instance_info}}"
+      run_once: true
 
-- name: fluentd-load-balancer-awsnlb | create elb_target_group
-  community.aws.elb_target_group:
-    access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
-    secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
-    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-    region: "{{cluster_vars.region}}"
-    name: "{{cluster_name}}-{{item.1.port}}-{{'int' if item.0=='internal' else 'ext'}}"
-    protocol: "{% if 'config' in item.1 and 'transport udp' in item.1.config %}UDP{% else %}TCP{% endif %}"
-    port: "{{ item.1.port }}"
-    vpc_id: "{{ r__ec2_instance_info.instances | json_query(\"[].vpc_id | [0]\") }}"
-    deregistration_connection_termination: "{{ false if 'config' not in item.1 or 'transport udp' not in item.1.config else true }}"
-    deregistration_delay_timeout: 30
-    health_check_port: "{{ item.1.port if 'config' not in item.1 or 'transport udp' not in item.1.config else 22 }}"
-    health_check_protocol: "TCP"
-    health_check_interval: 10
-    stickiness_enabled: false
-    successful_response_codes: "200,250-260"
-    targets: "{{ r__ec2_instance_info.instances | json_query(\"[].{Id: instance_id, Port: `\" + item.1.port|string + \"`}\") }}"
-    state: present
-  delegate_to: localhost
-  run_once: true
-  register: r__elb_target_group
-  with_nested:
-    - "{{ loadbalancer.awsnlb_schemes }}"
-    - "{{ fluentd.conffile.sources_multi_worker | selectattr('port', 'defined') }}"
+    - name: fluentd-load-balancer-awsnlb | fluentd instances by region
+      set_fact:
+        _aws_fluentd_instances_by_region: "{{ r__ec2_instance_info.results | json_query('[?instances && length(instances)>`0`].{region: item, instances: instances, vpc_id: instances[0].vpc_id, subnet_ids: instances[].subnet_id}') }}"
+      run_once: true
 
-- name: fluentd-load-balancer-awsnlb | r__elb_target_group
-  debug: msg="{{r__elb_target_group}}"
-  run_once: true
+    - name: fluentd-load-balancer-awsnlb | create elb_target_group
+      community.aws.elb_target_group:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        region: "{{ item.0.region }}"
+        name: "{{cluster_name}}-{{item.2.port}}-{{'int' if item.1=='internal' else 'ext'}}"
+        protocol: "{% if 'config' in item.2 and 'transport udp' in item.2.config %}UDP{% else %}TCP{% endif %}"
+        port: "{{ item.2.port }}"
+        vpc_id: "{{ item.0.vpc_id }}"
+        deregistration_connection_termination: "{{ false if 'config' not in item.2 or 'transport udp' not in item.2.config else true }}"
+        deregistration_delay_timeout: 30
+        health_check_port: "{{ item.2.port if 'config' not in item.2 or 'transport udp' not in item.2.config else 22 }}"
+        health_check_protocol: "TCP"
+        health_check_interval: 10
+        stickiness_enabled: false
+        successful_response_codes: "200,250-260"
+        targets: "{{ item.0.instances | json_query(\"[].{Id: instance_id, Port: `\" + item.2.port|string + \"`}\") }}"
+        state: present
+      loop: "{{ _aws_fluentd_instances_by_region | product(loadbalancer.awsnlb_schemes, _fluentd_ports) | list }}"
+      loop_control: { label: "{{ item.0.region }} {{ item.1 }} {{ item.2.port }}" }
+      delegate_to: localhost
+      run_once: true
+      register: r__elb_target_group
 
-- name: fluentd-load-balancer-awsnlb | Create an N/ELB and attach listeners
-  community.aws.elb_network_lb:
-    access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
-    secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
-    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-    region: "{{cluster_vars.region}}"
-    name: "{{cluster_name}}-{{'int' if item[0]=='internal' else 'ext'}}"
-    subnets: "{{ r__ec2_instance_info.instances | json_query(\"[].network_interfaces[].subnet_id\") }}"
-    cross_zone_load_balancing: true
-    scheme: "{{ item[0] }}"
-    listeners: "{{ item[1] | json_query(\"[].value.{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
-    state: present
-    wait: true
-  delegate_to: localhost
-  run_once: true
-  register: r__elb_network_lb
-  loop: "{{ r__elb_target_group.results | json_query('[*].{key: item[0], value: @}') | groupby('key') | map('list') }}"   # groupby returns a list of 'namedtuple' which we explicitly converted to a list (using map('list')) to avoid a warning. See https://forum.ansible.com/t/type-grouptuple-is-unsupported-in-variable-storage/44513/2
+    - name: fluentd-load-balancer-awsnlb | r__elb_target_group
+      debug: msg="{{r__elb_target_group}}"
+      run_once: true
 
-- name: fluentd-load-balancer-awsnlb | r__elb_network_lb
-  debug: msg="{{r__elb_network_lb}}"
-  run_once: true
+    - name: fluentd-load-balancer-awsnlb | Create an N/ELB and attach listeners
+      community.aws.elb_network_lb:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        region: "{{ item.0.region }}"
+        name: "{{cluster_name}}-{{'int' if item.1=='internal' else 'ext'}}"
+        subnets: "{{ item.0.subnet_ids | unique }}"
+        cross_zone_load_balancing: true
+        scheme: "{{ item.1 }}"
+        listeners: "{{ _tgs | json_query(\"[].{Protocol: protocol, Port: port, DefaultActions: [{Type: 'forward', TargetGroupName: target_group_name}]}\") }}"
+        state: present
+        wait: true
+      vars:
+        _tgs: "{{ r__elb_target_group.results | json_query(\"[?item[0].region=='\" + item.0.region + \"' && item[1]=='\" + item.1 + \"']\") }}"
+      loop: "{{ _aws_fluentd_instances_by_region | product(loadbalancer.awsnlb_schemes) | list }}"
+      loop_control: { label: "{{ item.0.region }} {{ item.1 }}" }
+      delegate_to: localhost
+      run_once: true
+      register: r__elb_network_lb
 
+    - name: fluentd-load-balancer-awsnlb | r__elb_network_lb
+      debug: msg="{{r__elb_network_lb}}"
+      run_once: true
 
-- name: fluentd-load-balancer-awsnlb | Gather info for pre-existing Hosted Zones (public and/or private)
-  amazon.aws.route53_info:
-    access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
-    secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
-    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-    query: hosted_zone
-  delegate_to: localhost
-  register: r__route53_info__zones
+    - name: fluentd-load-balancer-awsnlb | Gather info for pre-existing Hosted Zones (public and/or private)
+      amazon.aws.route53_info:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        query: hosted_zone
+      delegate_to: localhost
+      run_once: true
+      register: r__route53_info__zones
+      when: cluster_vars.dns_server == "route53"
 
-- name: fluentd-load-balancer-awsnlb | r__route53_info__zones
-  debug: msg="{{r__route53_info__zones}}"
-  run_once: true
+    - name: fluentd-load-balancer-awsnlb | r__route53_info__zones
+      debug: msg="{{r__route53_info__zones}}"
+      run_once: true
+      when: cluster_vars.dns_server == "route53"
 
-- name: fluentd-load-balancer-awsnlb | create CNAME(s)
-  amazon.aws.route53:
-    access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
-    secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
-    session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-    state: present
-    zone: "{{cluster_vars.dns_nameserver_zone}}"
-    record: "{{loadbalancer.url}}"
-    type: CNAME
-    ttl: 30
-    value: "{{ item.0.dns_name }}"
-    private_zone: "{{ item.1.Config.PrivateZone }}"
-    overwrite: true
-  with_nested:
-    - "{{ r__elb_network_lb.results }}"
-    - "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
-  delegate_to: localhost
-  run_once: true
-  when: loadbalancer.url is defined and loadbalancer.url != ''  and  ((item.0.scheme == 'internal' and item.1.Config.PrivateZone|bool) or (item.0.scheme == 'internet-facing' and not item.1.Config.PrivateZone|bool) )
+    # A simple CNAME (no SetIdentifier) cannot coexist with latency CNAMEs of the same name/type.
+    # amazon.aws.route53 overwrite=UPSERT does not convert between those routing policies.
+    - name: fluentd-load-balancer-awsnlb | Get existing CNAME(s)
+      amazon.aws.route53:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        state: get
+        zone: "{{cluster_vars.dns_nameserver_zone}}"
+        record: "{{loadbalancer.url}}"
+        type: CNAME
+        private_zone: "{{ item.config.private_zone }}"
+      loop: "{{ (r__route53_info__zones.hosted_zones | default([])) | json_query(\"[?name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
+      loop_control: { label: "{{ item.name }} private={{ item.config.private_zone }}" }
+      delegate_to: localhost
+      run_once: true
+      register: r__route53_cname_existing
+      ignore_errors: true
+      when:
+        - cluster_vars.dns_server == "route53"
+        - loadbalancer.url is defined and loadbalancer.url != ''
 
-#- name: fluentd-load-balancer-awsnlb | Wait for the NLB to be fully UP   (NOTE - only works if target is valid)
-#  wait_for:
-#    port: "{{ target_ports | first }}"
-#    host: '{{ r__elb_network_lb.dns_name }}'
-#  run_once: true
+    - name: fluentd-load-balancer-awsnlb | Delete simple CNAME(s) that conflict with latency RRSets
+      amazon.aws.route53:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        state: absent
+        zone: "{{ item.set.zone }}"
+        record: "{{ item.set.record }}"
+        type: "{{ item.set.type }}"
+        ttl: "{{ item.set.ttl }}"
+        value: ["{{ item.set.value }}"]
+        private_zone: "{{ item.item.config.private_zone }}"
+      loop: "{{ r__route53_cname_existing.results | default([]) }}"
+      loop_control: { label: "{{ item.set.record | default(item.item.name | default('')) }}" }
+      delegate_to: localhost
+      run_once: true
+      when:
+        - cluster_vars.dns_server == "route53"
+        - not (item.failed | default(false))
+        - item.set is mapping
+        - item.set.value is defined
+        - (item.set.identifier | default('')) == ''
+
+    - name: fluentd-load-balancer-awsnlb | create CNAME(s)
+      amazon.aws.route53:
+        access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+        secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+        state: present
+        zone: "{{cluster_vars.dns_nameserver_zone}}"
+        record: "{{loadbalancer.url}}"
+        type: CNAME
+        ttl: 30
+        value: "{{ item.0.dns_name }}"
+        identifier: "{{ item.0.item.0.region }}"
+        routing_region: "{{ item.0.item.0.region }}"
+        private_zone: "{{ item.1.config.private_zone }}"
+        overwrite: true
+      loop: "{{ r__elb_network_lb.results | product((r__route53_info__zones.hosted_zones | default([])) | json_query(\"[?name==`\" + cluster_vars.dns_nameserver_zone + \".`]\")) | list }}"
+      loop_control: { label: "{{ item.0.item.0.region }} {{ item.0.scheme }} {{ item.1.name }} private={{ item.1.config.private_zone }}" }
+      delegate_to: localhost
+      run_once: true
+      when:
+        - cluster_vars.dns_server == "route53"
+        - loadbalancer.url is defined and loadbalancer.url != ''
+        - (item.0.scheme == 'internal' and item.1.config.private_zone|bool) or (item.0.scheme == 'internet-facing' and not item.1.config.private_zone|bool)

@@ -8,6 +8,7 @@
       vars: { galaxy_collections: "{{lookup('pipe', 'ansible-galaxy collection list --format=json', errors='ignore') | from_json | json_query('*') | combine }}" }
 
     - { include_role: { name: "clusterverse.clusterverse.destroy", apply: { tags: ["clusterverse_destroy"]} }, tags: ["clusterverse_destroy"], when: "destroy_lifecycle is defined" }
+    - { include_role: { name: "fluentd/clean", apply: { tags: ["clusterverse_destroy"]} }, tags: ["clusterverse_destroy"], when: "destroy_lifecycle is defined" }
     - { include_role: { name: "clusterverse.clusterverse.create", apply: { tags: ["clusterverse_create"]} }, tags: ["clusterverse_create"] }
     - { include_role: { name: "clusterverse.clusterverse.dynamic_inventory", apply: { tags: ["always"]} }, tags: ["always"] }
 

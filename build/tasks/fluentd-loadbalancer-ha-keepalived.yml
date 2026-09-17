@@ -28,12 +28,12 @@
 
 - name: fluentd-loadbalancer-ha-keepalived | set basic sysctls (docs.fluentd.org/installation/before-install#optimize-the-network-kernel-parameters)
   become: true
-  sysctl:
+  ansible.posix.sysctl:
     name: "{{ item.1.name }}"
     value: "{{ item.1.value }}"
     reload: true
     sysctl_set: true
-    state: present
+    sysctl_file: "/etc/sysctl.d/99-fluentd__{{ item.1.name | regex_replace('\\.','_') }}.conf"
   delegate_to: "{{ item.0 }}"
   with_nested:
     - "{{fluentd_loadbalancer_hosts | default(ansible_play_batch)}}"

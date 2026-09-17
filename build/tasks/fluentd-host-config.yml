@@ -28,21 +28,22 @@
 
 - name: fluentd-host-config | sysctl - disable swappiness
   become: true
-  sysctl:
+  ansible.posix.sysctl:
     name: "vm.swappiness"
     value: 0
     reload: true
     sysctl_set: true
     state: present
+    sysctl_file: "/etc/sysctl.d/99-fluentd__vm_swappiness.conf"
 
 - name: fluentd-host-config | set network sysctls (https://docs.fluentd.org/installation/before-install#optimize-the-network-kernel-parameters)
   become: true
-  sysctl:
+  ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
     reload: true
     sysctl_set: true
-    state: present
+    sysctl_file: "/etc/sysctl.d/99-fluentd__{{ item.name | regex_replace('\\.','_') }}.conf"
   with_items:
     - {name: net.core.somaxconn,                  value: 1024}
     - {name: net.core.netdev_max_backlog,         value: 5000}

@@ -1,47 +1,39 @@
 ---
 
 - block:
-    - name: clean_aws | Get the ELB info
-      community.aws.elb_application_lb_info:
-        access_key: "{{ cluster_vars[buildenv].aws_access_key | default(omit) }}"
-        secret_key: "{{ cluster_vars[buildenv].aws_secret_key | default(omit) }}"
-        session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-        region: "{{cluster_vars.region}}"
-      register: r__elb_application_lb_info
-
-    - debug: msg={{r__elb_application_lb_info}}
-
     - name: clean_aws | Delete the N/ELB
-      elb_network_lb:
+      community.aws.elb_network_lb:
         access_key: "{{ cluster_vars[buildenv].aws_access_key | default(omit) }}"
         secret_key: "{{ cluster_vars[buildenv].aws_secret_key | default(omit) }}"
         session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-        region: "{{cluster_vars.region}}"
-        name: "{{ item }}"
+        region: "{{ item.0 }}"
+        name: "{{ cluster_name }}-{{ 'int' if item.1 == 'internal' else 'ext' }}"
         state: absent
-      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"-')].load_balancer_name\")}}"
+      loop: "{{ _aws_fluentd_regions | product(loadbalancer.awsnlb_schemes) | list }}"
+      loop_control: { label: "{{ item.0 }} {{ item.1 }}" }
 
     - name: clean_aws | Delete the elb_target_groups
-      elb_target_group:
+      community.aws.elb_target_group:
         access_key: "{{ cluster_vars[buildenv].aws_access_key | default(omit) }}"
         secret_key: "{{ cluster_vars[buildenv].aws_secret_key | default(omit) }}"
         session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
-        region: "{{cluster_vars.region}}"
-        name: "{{item}}"
+        region: "{{ item.0 }}"
+        name: "{{ cluster_name }}-{{ item.2.port }}-{{ 'int' if item.1 == 'internal' else 'ext' }}"
         state: absent
-      with_items: "{{r__elb_application_lb_info | json_query(\"load_balancers[?starts_with(load_balancer_name, '\" + cluster_name + \"-')].listeners[].default_actions[].target_group_arn\") | map('regex_replace', '^.*?([^\/]+)\/[^\/]+\/?$', '\\1') }}"
+      loop: "{{ _aws_fluentd_regions | product(loadbalancer.awsnlb_schemes, _fluentd_ports) | list }}"
+      loop_control: { label: "{{ item.0 }} {{ item.1 }} {{ item.2.port }}" }
 
     - block:
         - name: clean_aws | Gather info for pre-existing Hosted Zones (public and/or private)
-          route53_info:
+          amazon.aws.route53_info:
             access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
             secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
             session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
             query: hosted_zone
           register: r__route53_info__zones
 
-        - name: clean_aws | Get CNAME records
-          route53:
+        - name: clean_aws | Get simple CNAME records
+          amazon.aws.route53:
             access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
             secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
             session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
@@ -49,16 +41,36 @@
             zone: "{{cluster_vars.dns_nameserver_zone}}"
             record: "{{loadbalancer.url}}"
             type: "CNAME"
-            private_zone: "{{ item.Config.PrivateZone }}"
+            private_zone: "{{ item.config.private_zone }}"
           register: r__route53_cname
           ignore_errors: true
-          with_items: "{{ r__route53_info__zones.HostedZones | json_query(\"[?Name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
+          loop: "{{ r__route53_info__zones.hosted_zones | json_query(\"[?name==`\" + cluster_vars.dns_nameserver_zone + \".`]\") }}"
+
+        - name: clean_aws | Get latency CNAME records
+          amazon.aws.route53:
+            access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+            secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+            session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+            state: "get"
+            zone: "{{cluster_vars.dns_nameserver_zone}}"
+            record: "{{loadbalancer.url}}"
+            type: "CNAME"
+            identifier: "{{ item.1 }}"
+            routing_region: "{{ item.1 }}"
+            private_zone: "{{ item.0.config.private_zone }}"
+          register: r__route53_cname_latency
+          ignore_errors: true
+          loop: "{{ (r__route53_info__zones.hosted_zones | json_query(\"[?name==`\" + cluster_vars.dns_nameserver_zone + \".`]\")) | product(_aws_fluentd_regions) | list }}"
+          when: loadbalancer.url is defined and loadbalancer.url != ''
 
         - name: clean_aws | debug r__route53_cname
           debug: msg={{r__route53_cname}}
 
-        - name: clean_aws | Delete CNAME records
-          route53:
+        - name: clean_aws | debug r__route53_cname_latency
+          debug: msg={{r__route53_cname_latency}}
+
+        - name: clean_aws | Delete simple CNAME records
+          amazon.aws.route53:
             access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
             secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
             session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
@@ -68,7 +80,36 @@
             type: "{{ item.set.type }}"
             ttl: "{{ item.set.ttl }}"
             value: ["{{ item.set.value }}"]
-            private_zone: "{{ item.item.Config.PrivateZone }}"
-          with_items: "{{ r__route53_cname.results }}"
-          when: item.failed == false and item.resource_record_sets|length > 0     # Note: when set is empty, it returns an empty list, rather than an empty dict as it should
-      when: cluster_vars.dns_server == "route53"
+            private_zone: "{{ item.item.config.private_zone }}"
+          loop: "{{ r__route53_cname.results }}"
+          when:
+            - not (item.failed | default(false))
+            - item.set is mapping
+            - item.set.value is defined
+            - (item.set.identifier | default('')) == ''
+
+        - name: clean_aws | Delete latency CNAME records
+          amazon.aws.route53:
+            access_key: "{{cluster_vars[buildenv].aws_access_key | default(omit)}}"
+            secret_key: "{{cluster_vars[buildenv].aws_secret_key | default(omit)}}"
+            session_token: "{{cluster_vars[buildenv].aws_session_token | default(omit)}}"
+            state: "absent"
+            zone: "{{ item.set.zone }}"
+            record: "{{ item.set.record }}"
+            type: "{{ item.set.type }}"
+            ttl: "{{ item.set.ttl }}"
+            value: ["{{ item.set.value }}"]
+            identifier: "{{ item.set.identifier }}"
+            routing_region: "{{ item.set.routing_region | default(item.set.region) | default(item.item.1) }}"
+            private_zone: "{{ item.item.0.config.private_zone }}"
+          loop: "{{ r__route53_cname_latency.results | default([]) }}"
+          when:
+            - not (item.failed | default(false))
+            - item.set is mapping
+            - item.set.value is defined
+            - (item.set.identifier | default('')) != ''
+      when: cluster_vars.dns_server == "route53" and loadbalancer.url is defined and loadbalancer.url != ''
+  when: loadbalancer.lb_ha_mgr == "awsnlb"
+  vars:
+    _aws_fluentd_regions: "{{ cluster_vars[buildenv].hosttype_vars.fluentd.region_vars.keys() | list }}"
+    _fluentd_ports: "{{ fluentd.conffile.sources_multi_worker | selectattr('port', 'defined') | list }}"
